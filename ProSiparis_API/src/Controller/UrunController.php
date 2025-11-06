@@ -2,6 +2,7 @@
 namespace ProSiparis\Controller;
 
 use ProSiparis\Service\UrunService;
+use ProSiparis\Service\FileUploadService;
 use ProSiparis\Core\Request;
 
 class UrunController
@@ -13,7 +14,9 @@ class UrunController
     {
         global $pdo;
         $this->pdo = $pdo;
-        $this->urunService = new UrunService($this->pdo);
+        // Servisleri manuel olarak oluştur
+        $fileUploadService = new FileUploadService();
+        $this->urunService = new UrunService($this->pdo, $fileUploadService);
     }
 
     /**
@@ -44,7 +47,8 @@ class UrunController
     public function olustur(Request $request): void
     {
         $veri = $request->getBody();
-        $sonuc = $this->urunService->urunOlustur($veri);
+        $dosyalar = $request->getFiles();
+        $sonuc = $this->urunService->urunOlustur($veri, $dosyalar);
         $this->jsonYanitGonder($sonuc);
     }
 
@@ -68,6 +72,17 @@ class UrunController
     public function sil(Request $request, int $id): void
     {
         $sonuc = $this->urunService->urunSil($id);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    /**
+     * GET /api/kategoriler/{id}/urunler endpoint'ini yönetir.
+     * @param Request $request
+     * @param int $id
+     */
+    public function kategoriyeGoreListele(Request $request, int $id): void
+    {
+        $sonuc = $this->urunService->kategoriyeGoreGetir($id);
         $this->jsonYanitGonder($sonuc);
     }
 

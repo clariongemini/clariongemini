@@ -27,7 +27,8 @@ class Request
     }
 
     /**
-     * Gelen JSON gövdesini (body) çözer ve bir dizi olarak döndürür.
+     * Gelen isteğin gövdesini (body) bir dizi olarak döndürür.
+     * application/json ve multipart/form-data destekler.
      * @return array
      */
     public function getBody(): array
@@ -36,12 +37,36 @@ class Request
             return [];
         }
 
-        $body = file_get_contents('php://input');
-        if (empty($body)) {
-            return [];
+        // Eğer istek JSON ise
+        if (isset($_SERVER["CONTENT_TYPE"]) && strpos($_SERVER["CONTENT_TYPE"], "application/json") !== false) {
+            $body = file_get_contents('php://input');
+            return json_decode($body, true) ?: [];
         }
 
-        return json_decode($body, true) ?: [];
+        // Eğer istek multipart/form-data ise
+        // Normal form verilerini $_POST'tan al
+        $data = $_POST;
+
+        // Genellikle JSON olarak gönderilen karmaşık verileri (örn: varyantlar)
+        // bir form alanından (örn: 'json_payload') alıp decode edebiliriz.
+        if (isset($data['json_payload'])) {
+            $jsonData = json_decode($data['json_payload'], true);
+            if ($jsonData) {
+                unset($data['json_payload']);
+                $data = array_merge($data, $jsonData);
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Yüklenen dosyaları $_FILES'tan alır.
+     * @return array
+     */
+    public function getFiles(): array
+    {
+        return $_FILES;
     }
 
     /**

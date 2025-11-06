@@ -63,6 +63,13 @@ $router->delete('/api/admin/urunler/{id}', [\ProSiparis\Controller\UrunControlle
 $router->get('/api/admin/siparisler', [\ProSiparis\Controller\SiparisController::class, 'tumunuListele'], $adminProtected);
 $router->put('/api/admin/siparisler/{id}', [\ProSiparis\Controller\SiparisController::class, 'durumGuncelle'], $adminProtected);
 
+// Kategori Rotaları
+$router->get('/api/kategoriler', [\ProSiparis\Controller\KategoriController::class, 'listele']); // Herkese açık
+$router->get('/api/kategoriler/{id}/urunler', [\ProSiparis\Controller\UrunController::class, 'kategoriyeGoreListele']); // Herkese açık
+$router->post('/api/admin/kategoriler', [\ProSiparis\Controller\KategoriController::class, 'olustur'], $adminProtected);
+$router->put('/api/admin/kategoriler/{id}', [\ProSiparis\Controller\KategoriController::class, 'guncelle'], $adminProtected);
+$router->delete('/api/admin/kategoriler/{id}', [\ProSiparis\Controller\KategoriController::class, 'sil'], $adminProtected);
+
 
 // İsteği işle ve uygun rotayı çalıştır
 $router->dispatch();

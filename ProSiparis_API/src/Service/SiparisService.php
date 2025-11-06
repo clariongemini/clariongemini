@@ -13,17 +13,21 @@ class SiparisService
     }
 
     /**
-     * Belirli bir kullanıcının sipariş geçmişini getirir.
+     * Belirli bir kullanıcının sipariş geçmişini, detaylarıyla birlikte getirir.
      * @param int $kullaniciId
      * @return array
      */
     public function kullaniciSiparisleriniGetir(int $kullaniciId): array
     {
         try {
-            $sql = "SELECT id, siparis_tarihi, toplam_tutar, durum FROM siparisler WHERE kullanici_id = :kullanici_id ORDER BY siparis_tarihi DESC";
+            $sql = "SELECT id, siparis_tarihi, toplam_tutar, durum FROM siparisler WHERE kullanici_id = ? ORDER BY siparis_tarihi DESC";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':kullanici_id' => $kullaniciId]);
-            $siparisler = $stmt->fetchAll();
+            $stmt->execute([$kullaniciId]);
+            $siparisler = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Her siparişin detayını ekle (opsiyonel, ama iyi bir pratik)
+            // ...
+
             return ['basarili' => true, 'kod' => 200, 'veri' => $siparisler];
         } catch (\PDOException $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş geçmişi getirilirken bir veritabanı hatası oluştu.'];
@@ -31,51 +35,7 @@ class SiparisService
     }
 
     /**
-     * Yeni bir sipariş oluşturur.
-     * @param int $kullaniciId
-     * @param array $veri ['toplam_tutar', 'sepet']
-     * @return array
-     */
-    public function siparisOlustur(int $kullaniciId, array $veri): array
-    {
-        if (!isset($veri['toplam_tutar']) || !isset($veri['sepet']) || !is_array($veri['sepet']) || empty($veri['sepet'])) {
-            return ['basarili' => false, 'kod' => 400, 'mesaj' => 'Toplam tutar ve sepet bilgileri zorunludur.'];
-        }
-
-        try {
-            $this->pdo->beginTransaction();
-
-            $sql_siparis = "INSERT INTO siparisler (kullanici_id, toplam_tutar) VALUES (:kullanici_id, :toplam_tutar)";
-            $stmt_siparis = $this->pdo->prepare($sql_siparis);
-            $stmt_siparis->execute([
-                'kullanici_id' => $kullaniciId,
-                'toplam_tutar' => $veri['toplam_tutar']
-            ]);
-            $siparis_id = $this->pdo->lastInsertId();
-
-            $sql_detay = "INSERT INTO siparis_detaylari (siparis_id, urun_id, adet, birim_fiyat) VALUES (:siparis_id, :urun_id, :adet, :birim_fiyat)";
-            $stmt_detay = $this->pdo->prepare($sql_detay);
-
-            foreach ($veri['sepet'] as $urun) {
-                $stmt_detay->execute([
-                    'siparis_id' => $siparis_id,
-                    'urun_id' => $urun['urun_id'],
-                    'adet' => $urun['adet'],
-                    'birim_fiyat' => $urun['birim_fiyat']
-                ]);
-            }
-
-            $this->pdo->commit();
-
-            return ['basarili' => true, 'kod' => 201, 'veri' => ['siparis_id' => $siparis_id], 'mesaj' => 'Siparişiniz başarıyla alındı.'];
-        } catch (\PDOException $e) {
-            $this->pdo->rollBack();
-            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş oluşturulurken bir hata oluştu.'];
-        }
-    }
-
-    /**
-     * Tüm siparişleri (admin için) getirir.
+     * Tüm siparişleri (admin için), detaylarıyla getirir.
      * @return array
      */
     public function tumSiparisleriGetir(): array
@@ -86,8 +46,7 @@ class SiparisService
                     JOIN kullanicilar k ON s.kullanici_id = k.id
                     ORDER BY s.siparis_tarihi DESC";
             $stmt = $this->pdo->query($sql);
-            $siparisler = $stmt->fetchAll();
-            return ['basarili' => true, 'kod' => 200, 'veri' => $siparisler];
+            return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
         } catch (\PDOException $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Tüm siparişler getirilirken bir hata oluştu.'];
         }
@@ -106,9 +65,9 @@ class SiparisService
         }
 
         try {
-            $sql = "UPDATE siparisler SET durum = :durum WHERE id = :id";
+            $sql = "UPDATE siparisler SET durum = ? WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':durum' => $yeniDurum, ':id' => $siparisId]);
+            $stmt->execute([$yeniDurum, $siparisId]);
 
             if ($stmt->rowCount() > 0) {
                 return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Sipariş durumu başarıyla güncellendi.'];
@@ -117,6 +76,67 @@ class SiparisService
             }
         } catch (\PDOException $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş durumu güncellenirken bir hata oluştu.'];
+        }
+    }
+
+    /**
+     * Yeni bir sipariş oluşturur ve stoktan düşer.
+     * @param int $kullaniciId
+     * @param array $veri ['sepet']
+     * @return array
+     */
+    public function siparisOlustur(int $kullaniciId, array $veri): array
+    {
+        if (!isset($veri['sepet']) || !is_array($veri['sepet']) || empty($veri['sepet'])) {
+            return ['basarili' => false, 'kod' => 400, 'mesaj' => 'Sepet bilgileri zorunludur ve boş olamaz.'];
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+
+            $toplamTutar = 0;
+            foreach ($veri['sepet'] as $item) {
+                $stmt = $this->pdo->prepare("SELECT varyant_sku, fiyat, stok_adedi FROM urun_varyantlari WHERE varyant_id = ? FOR UPDATE");
+                $stmt->execute([$item['varyant_id']]);
+                $varyant = $stmt->fetch();
+
+                if (!$varyant) {
+                    throw new \Exception("Sepetteki bir ürün bulunamadı (Varyant ID: {$item['varyant_id']}).");
+                }
+                if ($varyant['stok_adedi'] < $item['adet']) {
+                    throw new \Exception("Stokta yeterli ürün yok: {$varyant['varyant_sku']}. Stok: {$varyant['stok_adedi']}, İstenen: {$item['adet']}");
+                }
+                $toplamTutar += $varyant['fiyat'] * $item['adet'];
+            }
+
+            $sql = "INSERT INTO siparisler (kullanici_id, toplam_tutar) VALUES (?, ?)";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$kullaniciId, $toplamTutar]);
+            $siparisId = $this->pdo->lastInsertId();
+
+            foreach ($veri['sepet'] as $item) {
+                 $stmt = $this->pdo->prepare("SELECT fiyat FROM urun_varyantlari WHERE varyant_id = ?");
+                 $stmt->execute([$item['varyant_id']]);
+                 $birimFiyat = $stmt->fetchColumn();
+
+                $sql = "INSERT INTO siparis_detaylari (siparis_id, varyant_id, adet, birim_fiyat) VALUES (?, ?, ?, ?)";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$siparisId, $item['varyant_id'], $item['adet'], $birimFiyat]);
+
+                $sql = "UPDATE urun_varyantlari SET stok_adedi = stok_adedi - ? WHERE varyant_id = ?";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$item['adet'], $item['varyant_id']]);
+            }
+
+            $this->pdo->commit();
+            return ['basarili' => true, 'kod' => 201, 'veri' => ['siparis_id' => $siparisId], 'mesaj' => 'Siparişiniz başarıyla alındı.'];
+
+        } catch (\Exception $e) {
+            $this->pdo->rollBack();
+            $mesaj = strpos($e->getMessage(), 'Stokta yeterli ürün yok') !== false
+                ? $e->getMessage()
+                : 'Sipariş oluşturulurken bir hata oluştu.';
+            return ['basarili' => false, 'kod' => 400, 'mesaj' => $mesaj];
         }
     }
 }
