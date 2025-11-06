@@ -3,6 +3,11 @@
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Methods: POST');
+
+// Güvenlik: Bu endpoint'e erişim için geçerli bir JWT gereklidir.
+require_once __DIR__ . '/../dogrulama.php';
+$aktif_kullanici = token_dogrula();
+
 require_once __DIR__ . '/../veritabani_baglantisi.php';
 
 // Sadece POST isteklerini kabul et.
@@ -16,19 +21,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $veri = json_decode(file_get_contents('php://input'), true);
 
 // Gerekli alanların kontrolü.
+// kullanici_id artık JWT'den geldiği için body'de aranmıyor.
 if (
-    !isset($veri['kullanici_id']) ||
     !isset($veri['toplam_tutar']) ||
     !isset($veri['sepet']) ||
     !is_array($veri['sepet']) ||
     empty($veri['sepet'])
 ) {
     http_response_code(400);
-    echo json_encode(['durum' => 'hata', 'mesaj' => 'Kullanıcı ID, toplam tutar ve sepet bilgileri zorunludur.']);
+    echo json_encode(['durum' => 'hata', 'mesaj' => 'Toplam tutar ve sepet bilgileri zorunludur.']);
     exit;
 }
 
-$kullanici_id = $veri['kullanici_id'];
+// Kullanıcı ID'si artık güvenli bir şekilde token'dan alınıyor.
+$kullanici_id = $aktif_kullanici->kullanici_id;
 $toplam_tutar = $veri['toplam_tutar'];
 $sepet = $veri['sepet'];
 

@@ -3,6 +3,12 @@
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Methods: GET');
+
+// Güvenlik: Bu endpoint'e erişim için geçerli bir JWT gereklidir.
+require_once __DIR__ . '/../dogrulama.php';
+$aktif_kullanici = token_dogrula();
+
+// veritabani_baglantisi.php dogrulama.php'den sonra dahil edilmeli, çünkü dogrulama.php zaten ayarlar.php'yi içeriyor.
 require_once __DIR__ . '/../veritabani_baglantisi.php';
 
 // Sadece GET isteklerini kabul et.
@@ -12,22 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
-// GET parametresinden kullanıcı ID'sini al.
-$kullanici_id = isset($_GET['kullanici_id']) ? (int)$_GET['kullanici_id'] : 0;
-
-// Kullanıcı ID'si geçerli değilse hata döndür.
-if ($kullanici_id <= 0) {
-    http_response_code(400);
-    echo json_encode(['durum' => 'hata', 'mesaj' => 'Geçerli bir kullanıcı ID\'si belirtilmelidir.']);
-    exit;
-}
-
+// Token'dan gelen kullanıcı ID'sini kullanarak siparişleri güvenli bir şekilde getir.
 // Belirli bir kullanıcıya ait siparişleri en yeniden eskiye doğru sıralayarak seçen sorgu.
 $sql = "SELECT id, siparis_tarihi, toplam_tutar, durum FROM siparisler WHERE kullanici_id = :kullanici_id ORDER BY siparis_tarihi DESC";
 
 try {
     $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':kullanici_id', $kullanici_id, PDO::PARAM_INT);
+    // Güvenli: Kullanıcı ID'si URL'den değil, doğrulanmış token'dan alınıyor.
+    $stmt->bindParam(':kullanici_id', $aktif_kullanici->kullanici_id, PDO::PARAM_INT);
     $stmt->execute();
 
     $siparisler = $stmt->fetchAll();
