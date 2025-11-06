@@ -1,20 +1,6 @@
-# ProSiparis API v2.0 - Profesyonel Sipariş Yönetim Sistemi
+# ProSiparis API v2.1 - Profesyonel Sipariş Yönetim Sistemi
 
 Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, modern PHP standartlarına uygun, güvenli ve ölçeklenebilir bir backend (API) sunucusudur.
-
----
-
-## v2.0 Mimarisi ve Özellikleri
-
-Bu sürüm, API'yi "Front Controller" mimarisine geçirerek, her isteğin tek bir `public/index.php` dosyası üzerinden yönetilmesini sağlar. Bu, bakımı kolaylaştırır ve kod tekrarını önler.
-
--   **Modern Mimari:** Controller, Service, Middleware ve Core katmanları ile organize edilmiş kod yapısı.
--   **Composer ile Bağımlılık Yönetimi:** `firebase/php-jwt` gibi kütüphaneler artık Composer ile yönetilmektedir.
--   **RESTful Yönlendirme (Routing):** `/api/urunler`, `/api/siparisler/{id}` gibi temiz URL'ler.
--   **JWT ile Güvenlik:** Tüm hassas endpoint'ler, `Authorization: Bearer <token>` başlığı gerektiren JWT kimlik doğrulaması ile korunmaktadır.
--   **Rol Bazlı Erişim Kontrolü (RBAC):** `kullanici` ve `admin` rolleri tanımlanmıştır. Belirli endpoint'ler sadece admin yetkisine sahip kullanıcılar tarafından erişilebilir.
--   **Tam Kapsamlı Yönetim:** Adminler için ürün (CRUD) ve sipariş yönetimi API'leri.
--   **Kullanıcı Profili ve Tercihleri:** Kullanıcılar kendi profillerini ve uygulama tercihlerini (dil, tema) yönetebilirler.
 
 ---
 
@@ -35,7 +21,7 @@ Bu sürüm, API'yi "Front Controller" mimarisine geçirerek, her isteğin tek bi
 
 3.  **Veritabanı Oluşturma:**
     *   Bir MySQL veritabanı sunucusunda `prosiparis_db` adında bir veritabanı oluşturun.
-    *   Proje ana dizininde bulunan `schema.sql` dosyasını bu veritabanına içe aktararak tabloları oluşturun.
+    *   Proje ana dizininde bulunan `schema.sql` dosyasını bu veritabanına içe aktararak tabloları oluşturun. (Bu dosya v2.1 için güncellenmiştir).
 
 4.  **Yapılandırma:**
     *   `config/ayarlar.php` dosyasını açın ve `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` sabitlerini kendi veritabanı bilgilerinize göre düzenleyin.
@@ -47,37 +33,79 @@ Bu sürüm, API'yi "Front Controller" mimarisine geçirerek, her isteğin tek bi
 
 ---
 
-## API Endpoint'leri (v2.0)
+## Versiyon Geçmişi
 
-### Kimlik Doğrulama
+### v2.1: Gelişmiş Katalog ve Envanter Yönetimi
 
--   **`POST /api/kullanici/kayit`**: Yeni kullanıcı oluşturur.
-    -   **Body:** `{ "ad_soyad": "...", "eposta": "...", "parola": "..." }`
--   **`POST /api/kullanici/giris`**: Kullanıcı girişi yapar ve token döndürür.
-    -   **Body:** `{ "eposta": "...", "parola": "..." }`
-    -   **Başarılı Yanıt:** `{ "durum": "basarili", "veri": { "token": "...", "kullanici_tercihleri": { "dil": "tr-TR", "tema": "system" } } }`
+Bu sürüm, API'yi basit bir ürün listesinden, profesyonel bir e-ticaret kataloğuna dönüştürür.
 
-### Herkese Açık Endpoint'ler
+-   **Ürün Varyantları:** Ürünler artık "Beden", "Renk" gibi niteliklere ve bu niteliklere bağlı, her birinin kendi SKU'su, fiyatı ve stoğu olan varyantlara sahip olabilir.
+-   **Gerçek Zamanlı Stok Kontrolü:** Sipariş oluşturma işlemi artık bir veritabanı işlemi (transaction) içinde stok yeterliliğini kontrol eder. Stok yetersizse sipariş iptal edilir, yeterliyse stoktan otomatik olarak düşülür.
+-   **Kategori Yönetimi:** Ürünler artık kategorilere atanabilir. Adminler için tam CRUD (Oluştur, Oku, Güncelle, Sil) kategori yönetimi API'leri eklenmiştir.
+-   **Resim Yükleme:** Adminler artık `multipart/form-data` isteği ile ürün oluştururken/güncellerken doğrudan resim dosyası yükleyebilir.
+-   **Zengin Ürün Detayı:** `GET /api/urunler/{id}` endpoint'i, mobil uygulamanın dinamik seçimler (renk kutucukları, beden dropdown'ı vb.) oluşturabilmesi için gereken tüm varyant, nitelik ve stok bilgilerini içeren zengin bir JSON yanıtı döndürür.
 
--   **`GET /api/urunler`**: Tüm ürünleri listeler.
--   **`GET /api/urunler/{id}`**: Belirtilen ID'ye sahip ürünü getirir.
+### v2.0: Mimari Modernizasyon
 
-### Kullanıcı Korumalı Endpoint'ler (`Authorization: Bearer <token>` Gerekli)
+Bu sürüm, API'yi "Front Controller" mimarisine geçirerek, her isteğin tek bir `public/index.php` dosyası üzerinden yönetilmesini sağlar.
+-   **Modern Mimari:** Controller, Service, Middleware ve Core katmanları.
+-   **Composer ile Bağımlılık Yönetimi.**
+-   **RESTful Yönlendirme (Routing):** Temiz URL'ler.
+-   **JWT ile Güvenlik ve Rol Bazlı Erişim Kontrolü (RBAC).**
+-   **Kullanıcı Profili ve Tercihleri.**
 
--   **`GET /api/kullanici/profil`**: Mevcut kullanıcının profil bilgilerini getirir.
--   **`PUT /api/kullanici/profil`**: Mevcut kullanıcının profilini günceller.
-    -   **Body:** `{ "ad_soyad": "...", "tercih_dil": "en-US", "tercih_tema": "dark" }`
--   **`GET /api/siparisler`**: Mevcut kullanıcının sipariş geçmişini listeler.
--   **`POST /api/siparisler`**: Mevcut kullanıcı için yeni bir sipariş oluşturur.
-    -   **Body:** `{ "toplam_tutar": ..., "sepet": [...] }`
+---
 
-### Admin Korumalı Endpoint'ler (Admin Rolü ve Token Gerekli)
+## API Endpoint'leri (v2.1)
 
--   **`POST /api/admin/urunler`**: Yeni bir ürün ekler.
-    -   **Body:** `{ "urun_adi": "...", "fiyat": ..., "aciklama": "...", "resim_url": "..." }`
--   **`PUT /api/admin/urunler/{id}`**: Bir ürünü günceller.
-    -   **Body:** `{ "urun_adi": "...", "fiyat": ... }`
--   **`DELETE /api/admin/urunler/{id}`**: Bir ürünü siler.
--   **`GET /api/admin/siparisler`**: **Tüm** kullanıcıların siparişlerini listeler.
--   **`PUT /api/admin/siparisler/{id}`**: Bir siparişin durumunu günceller.
-    -   **Body:** `{ "durum": "Kargoya Verildi" }`
+_Değişiklikler ve yeni eklenenler aşağıda belirtilmiştir. Diğerleri v2.0 ile aynıdır._
+
+### Herkese Açık Endpoint'ler (Yeni ve Güncellenmiş)
+
+-   **`GET /api/kategoriler`**: Tüm kategorileri listeler.
+-   **`GET /api/kategoriler/{id}/urunler`**: Belirli bir kategoriye ait ürünleri listeler.
+-   **`GET /api/urunler/{id}` (GÜNCELLENDİ)**: Bir ürünün tüm varyant, nitelik, stok ve kategori bilgilerini içeren zengin detayını getirir.
+    -   **Örnek Yanıt:**
+        ```json
+        {
+          "urun_id": 1,
+          "urun_adi": "Erkek Tişört",
+          "nitelikler": [
+            { "nitelik_adi": "Renk", "degerler": ["Kırmızı", "Mavi"] },
+            { "nitelik_adi": "Beden", "degerler": ["M", "L"] }
+          ],
+          "varyantlar": [
+            {
+              "varyant_id": 12,
+              "fiyat": 150.00,
+              "stok_adedi": 15,
+              "secili_nitelikler": [
+                { "nitelik_adi": "Renk", "deger_adi": "Kırmızı" },
+                { "nitelik_adi": "Beden", "deger_adi": "L" }
+              ]
+            }
+          ]
+        }
+        ```
+
+### Kullanıcı Korumalı Endpoint'ler (Güncellenmiş)
+
+-   **`POST /api/siparisler` (GÜNCELLENDİ)**: Yeni bir sipariş oluşturur ve stoktan düşer.
+    -   **Body (Artık `varyant_id` kullanılıyor):**
+        ```json
+        {
+          "sepet": [
+            { "varyant_id": 12, "adet": 1 },
+            { "varyant_id": 15, "adet": 2 }
+          ]
+        }
+        ```
+
+### Admin Korumalı Endpoint'ler (Yeni ve Güncellenmiş)
+
+-   **`POST /api/admin/urunler` (GÜNCELLENDİ)**: `multipart/form-data` kullanarak resim ve varyant bilgileriyle yeni bir ürün ekler.
+    -   **Form Verisi:** `urun_adi`, `kategori_id`, `aciklama`, `json_payload` (varyantları içeren JSON string'i)
+    -   **Dosya:** `ana_resim`
+-   **`POST /api/admin/kategoriler` (YENİ)**: Yeni bir kategori oluşturur.
+-   **`PUT /api/admin/kategoriler/{id}` (YENİ)**: Bir kategoriyi günceller.
+-   **`DELETE /api/admin/kategoriler/{id}` (YENİ)**: Bir kategoriyi siler.
