@@ -1,134 +1,83 @@
-# ProSiparis_API - Profesyonel Sipariş Yönetim Sistemi Backend
+# ProSiparis API v2.0 - Profesyonel Sipariş Yönetim Sistemi
 
-Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş PHP ve MySQL tabanlı bir backend (API) sunucusudur.
-
----
-
-## Versiyon Geçmişi
-
-### v1.0.0 (İlk Sürüm)
-
-Bu ilk sürüm, bir sipariş uygulamasının temel işlevlerini desteklemek için gerekli olan tüm temel API endpoint'lerini içerir.
-
-#### Kurulum
-
-1.  **Veritabanı Oluşturma:**
-    *   Bir MySQL veritabanı sunucusunda `prosiparis_db` adında (veya istediğiniz başka bir isimde) bir veritabanı oluşturun.
-    *   Proje ana dizininde bulunan `schema.sql` dosyasını bu veritabanına içe aktararak (`import`) gerekli tabloları (`kullanicilar`, `urunler`, `siparisler`, `siparis_detaylari`) oluşturun.
-
-2.  **Yapılandırma:**
-    *   `ProSiparis_API/ayarlar.php` dosyasını açın.
-    *   `DB_HOST`, `DB_NAME`, `DB_USER` ve `DB_PASS` sabitlerini kendi veritabanı bağlantı bilgilerinize göre düzenleyin.
-
-3.  **Sunucuya Yükleme:**
-    *   `ProSiparis_API` klasörünün içeriğini web sunucunuzun erişilebilir bir dizinine yükleyin.
-
-#### API Endpoint'leri (v1.0.0)
-
-Tüm istekler ve yanıtlar JSON formatındadır.
-
-*   **Kullanıcı Kaydı**
-    *   **Metot:** `POST`
-    *   **Endpoint:** `/api/kullanici_kayit.php`
-    *   **Gövde (Body):**
-        ```json
-        {
-            "ad_soyad": "Ahmet Yılmaz",
-            "eposta": "ahmet@example.com",
-            "parola": "güçlüparola123"
-        }
-        ```
-
-*   **Kullanıcı Girişi**
-    *   **Metot:** `POST`
-    *   **Endpoint:** `/api/kullanici_giris.php`
-    *   **Gövde (Body):**
-        ```json
-        {
-            "eposta": "ahmet@example.com",
-            "parola": "güçlüparola123"
-        }
-        ```
-
-*   **Tüm Ürünleri Listele**
-    *   **Metot:** `GET`
-    *   **Endpoint:** `/api/urun_listesi_getir.php`
-
-*   **Ürün Detayını Getir**
-    *   **Metot:** `GET`
-    *   **Endpoint:** `/api/urun_detay_getir.php?urun_id=1`
-
-*   **Sipariş Oluştur**
-    *   **Metot:** `POST`
-    *   **Endpoint:** `/api/siparis_olustur.php`
-    *   **Gövde (Body):**
-        ```json
-        {
-            "kullanici_id": 1,
-            "toplam_tutar": 250.75,
-            "sepet": [
-                {"urun_id": 3, "adet": 1, "birim_fiyat": 150.50},
-                {"urun_id": 5, "adet": 2, "birim_fiyat": 50.125}
-            ]
-        }
-        ```
-
-*   **Sipariş Geçmişini Getir**
-    *   **Metot:** `GET`
-    *   **Endpoint:** `/api/siparis_gecmisi_getir.php?kullanici_id=1`
+Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, modern PHP standartlarına uygun, güvenli ve ölçeklenebilir bir backend (API) sunucusudur.
 
 ---
 
-### v1.1.0 (Güvenlik ve İyileştirmeler)
+## v2.0 Mimarisi ve Özellikleri
 
-Bu sürüm, API'ye JWT (JSON Web Token) tabanlı kimlik doğrulama ekleyerek güvenliği önemli ölçüde artırır ve gelecekteki özellikler için zemin hazırlar.
+Bu sürüm, API'yi "Front Controller" mimarisine geçirerek, her isteğin tek bir `public/index.php` dosyası üzerinden yönetilmesini sağlar. Bu, bakımı kolaylaştırır ve kod tekrarını önler.
 
-#### Yenilikler
+-   **Modern Mimari:** Controller, Service, Middleware ve Core katmanları ile organize edilmiş kod yapısı.
+-   **Composer ile Bağımlılık Yönetimi:** `firebase/php-jwt` gibi kütüphaneler artık Composer ile yönetilmektedir.
+-   **RESTful Yönlendirme (Routing):** `/api/urunler`, `/api/siparisler/{id}` gibi temiz URL'ler.
+-   **JWT ile Güvenlik:** Tüm hassas endpoint'ler, `Authorization: Bearer <token>` başlığı gerektiren JWT kimlik doğrulaması ile korunmaktadır.
+-   **Rol Bazlı Erişim Kontrolü (RBAC):** `kullanici` ve `admin` rolleri tanımlanmıştır. Belirli endpoint'ler sadece admin yetkisine sahip kullanıcılar tarafından erişilebilir.
+-   **Tam Kapsamlı Yönetim:** Adminler için ürün (CRUD) ve sipariş yönetimi API'leri.
+-   **Kullanıcı Profili ve Tercihleri:** Kullanıcılar kendi profillerini ve uygulama tercihlerini (dil, tema) yönetebilirler.
 
-1.  **JWT Kimlik Doğrulama:**
-    *   `kullanici_giris.php` endpoint'i artık başarılı bir girişin ardından `kullanici_id` yerine bir `token` döndürür. Bu token, sonraki yetkili isteklerde kullanılmalıdır.
-    *   `firebase/php-jwt` kütüphanesi (manuel olarak) projeye entegre edilmiştir.
+---
 
-2.  **Güvenli Endpoint'ler:**
-    *   `siparis_gecmisi_getir.php` gibi hassas endpoint'ler artık `Authorization: Bearer <token>` başlığı olmadan erişilemez.
-    *   Bu güncelleme, kullanıcıların sadece kendi verilerine erişebilmesini sağlayarak IDOR (Insecure Direct Object Reference) gibi güvenlik açıklarını kapatır.
+## Kurulum
 
-#### Güncellenen API Kullanımı
+1.  **Gerekli Araçlar:**
+    *   PHP >= 7.4
+    *   Composer
+    *   MySQL Veritabanı Sunucusu
+    *   Apache (veya `.htaccess` destekli başka bir web sunucusu)
 
-*   **Kullanıcı Girişi (Yanıt Değişti)**
-    *   **Endpoint:** `/api/kullanici_giris.php`
-    *   **Başarılı Yanıt (Örnek):**
-        ```json
-        {
-            "durum": "basarili",
-            "mesaj": "Giriş başarılı.",
-            "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-        }
+2.  **Projeyi Kurma:**
+    *   Projeyi sunucunuza klonlayın veya indirin.
+    *   Projenin ana dizininde (`ProSiparis_API/`) terminali açın ve bağımlılıkları yükleyin:
+        ```bash
+        composer install
         ```
 
-*   **Sipariş Geçmişini Getir (Artık Korumalı)**
-    *   **Metot:** `GET`
-    *   **Endpoint:** `/api/siparis_gecmisi_getir.php`
-    *   **Gerekli Başlık (Header):**
-        ```
-        Authorization: Bearer <Giriş Yaptıktan Sonra Alınan Token>
-        ```
-    *   **Not:** URL'den `?kullanici_id=` parametresi kaldırılmıştır. Kullanıcı kimliği artık doğrudan token içerisinden güvenli bir şekilde alınmaktadır.
+3.  **Veritabanı Oluşturma:**
+    *   Bir MySQL veritabanı sunucusunda `prosiparis_db` adında bir veritabanı oluşturun.
+    *   Proje ana dizininde bulunan `schema.sql` dosyasını bu veritabanına içe aktararak tabloları oluşturun.
 
-*   **Sipariş Oluştur (Artık Korumalı)**
-    *   **Metot:** `POST`
-    *   **Endpoint:** `/api/siparis_olustur.php`
-    *   **Gerekli Başlık (Header):**
-        ```
-        Authorization: Bearer <Giriş Yaptıktan Sonra Alınan Token>
-        ```
-    *   **Gövde (Body) (Artık `kullanici_id` içermiyor):**
-        ```json
-        {
-            "toplam_tutar": 250.75,
-            "sepet": [
-                {"urun_id": 3, "adet": 1, "birim_fiyat": 150.50},
-                {"urun_id": 5, "adet": 2, "birim_fiyat": 50.125}
-            ]
-        }
-        ```
+4.  **Yapılandırma:**
+    *   `config/ayarlar.php` dosyasını açın ve `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` sabitlerini kendi veritabanı bilgilerinize göre düzenleyin.
+    *   Aynı dosyada, `JWT_SECRET_KEY` için kendi ürettiğiniz, güvenli ve rastgele bir anahtar girin.
+
+5.  **Web Sunucusu Yapılandırması:**
+    *   Web sunucunuzun `mod_rewrite` modülünün aktif olduğundan emin olun.
+    *   Güvenlik açısından, sunucunuzun "Document Root" (Ana Dizin) olarak projenin `public/` klasörünü göstermesi şiddetle tavsiye edilir.
+
+---
+
+## API Endpoint'leri (v2.0)
+
+### Kimlik Doğrulama
+
+-   **`POST /api/kullanici/kayit`**: Yeni kullanıcı oluşturur.
+    -   **Body:** `{ "ad_soyad": "...", "eposta": "...", "parola": "..." }`
+-   **`POST /api/kullanici/giris`**: Kullanıcı girişi yapar ve token döndürür.
+    -   **Body:** `{ "eposta": "...", "parola": "..." }`
+    -   **Başarılı Yanıt:** `{ "durum": "basarili", "veri": { "token": "...", "kullanici_tercihleri": { "dil": "tr-TR", "tema": "system" } } }`
+
+### Herkese Açık Endpoint'ler
+
+-   **`GET /api/urunler`**: Tüm ürünleri listeler.
+-   **`GET /api/urunler/{id}`**: Belirtilen ID'ye sahip ürünü getirir.
+
+### Kullanıcı Korumalı Endpoint'ler (`Authorization: Bearer <token>` Gerekli)
+
+-   **`GET /api/kullanici/profil`**: Mevcut kullanıcının profil bilgilerini getirir.
+-   **`PUT /api/kullanici/profil`**: Mevcut kullanıcının profilini günceller.
+    -   **Body:** `{ "ad_soyad": "...", "tercih_dil": "en-US", "tercih_tema": "dark" }`
+-   **`GET /api/siparisler`**: Mevcut kullanıcının sipariş geçmişini listeler.
+-   **`POST /api/siparisler`**: Mevcut kullanıcı için yeni bir sipariş oluşturur.
+    -   **Body:** `{ "toplam_tutar": ..., "sepet": [...] }`
+
+### Admin Korumalı Endpoint'ler (Admin Rolü ve Token Gerekli)
+
+-   **`POST /api/admin/urunler`**: Yeni bir ürün ekler.
+    -   **Body:** `{ "urun_adi": "...", "fiyat": ..., "aciklama": "...", "resim_url": "..." }`
+-   **`PUT /api/admin/urunler/{id}`**: Bir ürünü günceller.
+    -   **Body:** `{ "urun_adi": "...", "fiyat": ... }`
+-   **`DELETE /api/admin/urunler/{id}`**: Bir ürünü siler.
+-   **`GET /api/admin/siparisler`**: **Tüm** kullanıcıların siparişlerini listeler.
+-   **`PUT /api/admin/siparisler/{id}`**: Bir siparişin durumunu günceller.
+    -   **Body:** `{ "durum": "Kargoya Verildi" }`

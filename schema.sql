@@ -12,6 +12,9 @@ CREATE TABLE `kullanicilar` (
   `ad_soyad` VARCHAR(100) NOT NULL,
   `eposta` VARCHAR(100) NOT NULL UNIQUE,
   `parola` VARCHAR(255) NOT NULL,
+  `rol` VARCHAR(50) NOT NULL DEFAULT 'kullanici',
+  `tercih_dil` VARCHAR(10) NOT NULL DEFAULT 'tr-TR',
+  `tercih_tema` VARCHAR(10) NOT NULL DEFAULT 'system',
   `kayit_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -1,9 +1,6 @@
 <?php
 // ayarlar.php - ProSiparis_API Projesi için Veritabanı ve JWT Yapılandırma Dosyası
 
-// Manuel olarak eklenen kütüphaneler için autoload dosyasını dahil et.
-require_once __DIR__ . '/vendor/manual_autoload.php';
-
 // Hata raporlamayı geliştirme aşamasında açın, canlı ortamda kapatın.
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
