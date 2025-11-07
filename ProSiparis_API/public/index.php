@@ -51,6 +51,11 @@ $router->get('/api/siparisler/{id}', [\ProSiparis\Controller\SiparisController::
 $router->get('/api/kullanici/profil', [\ProSiparis\Controller\KullaniciController::class, 'profilGetir'], [$authMiddleware]);
 $router->put('/api/kullanici/profil', [\ProSiparis\Controller\KullaniciController::class, 'profilGuncelle'], [$authMiddleware]);
 
+// Favori Rotaları (Kullanıcı Korumalı)
+$router->get('/api/kullanici/favoriler', [\ProSiparis\Controller\UrunController::class, 'favorileriListele'], [$authMiddleware]);
+$router->post('/api/kullanici/favoriler', [\ProSiparis\Controller\UrunController::class, 'favoriyeEkle'], [$authMiddleware]);
+$router->delete('/api/kullanici/favoriler/{id}', [\ProSiparis\Controller\UrunController::class, 'favoridenCikar'], [$authMiddleware]);
+
 // --- Admin Rotaları (Admin Korumalı) ---
 $adminMiddleware = \ProSiparis\Middleware\AdminMiddleware::class;
 $adminProtected = [$authMiddleware, $adminMiddleware];
@@ -79,6 +84,11 @@ $router->post('/api/sepet/kupon-dogrula', [\ProSiparis\Controller\CouponControll
 // Ödeme Rotaları
 $router->post('/api/odeme/baslat', [\ProSiparis\Controller\OdemeController::class, 'baslat'], [$authMiddleware]);
 $router->post('/api/odeme/callback/iyzico', [\ProSiparis\Controller\OdemeController::class, 'callback']); // Webhook
+
+// Değerlendirme Rotaları
+$router->get('/api/urunler/{id}/degerlendirmeler', [\ProSiparis\Controller\ReviewController::class, 'listele']); // Herkese açık
+$router->post('/api/urunler/{id}/degerlendirme', [\ProSiparis\Controller\ReviewController::class, 'olustur'], [$authMiddleware]);
+$router->delete('/api/degerlendirmeler/{id}', [\ProSiparis\Controller\ReviewController::class, 'sil'], [$authMiddleware]);
 
 // Kategori Rotaları
 $router->get('/api/kategoriler', [\ProSiparis\Controller\KategoriController::class, 'listele']); // Herkese açık

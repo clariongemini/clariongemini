@@ -36,7 +36,9 @@ class UrunController
      */
     public function detay(Request $request, int $id): void
     {
-        $sonuc = $this->urunService->idIleGetir($id);
+        // Token varsa kullanıcı ID'sini al, yoksa null gönder.
+        $kullaniciId = Auth::check() ? Auth::id() : null;
+        $sonuc = $this->urunService->idIleGetir($id, $kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 
@@ -83,6 +85,28 @@ class UrunController
     public function kategoriyeGoreListele(Request $request, int $id): void
     {
         $sonuc = $this->urunService->kategoriyeGoreGetir($id);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    public function favoriyeEkle(Request $request): void
+    {
+        $kullaniciId = Auth::id();
+        $urunId = $request->getBody()['urun_id'] ?? 0;
+        $sonuc = $this->urunService->favoriyeEkle($kullaniciId, $urunId);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    public function favoridenCikar(Request $request, int $urunId): void
+    {
+        $kullaniciId = Auth::id();
+        $sonuc = $this->urunService->favoridenCikar($kullaniciId, $urunId);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    public function favorileriListele(Request $request): void
+    {
+        $kullaniciId = Auth::id();
+        $sonuc = $this->urunService->favorileriListele($kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 

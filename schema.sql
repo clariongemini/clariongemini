@@ -1,6 +1,9 @@
--- ProSiparis_API Veritabanı Şeması v2.3
--- Promosyon Motoru, Lojistik ve Bildirimler için güncellenmiştir.
+-- ProSiparis_API Veritabanı Şeması v2.4
+-- Sosyal Kanıt (Değerlendirme/Puan) ve Kullanıcı Etkileşimi (Favoriler) için güncellenmiştir.
 
+-- Tabloları oluşturmadan önce, varsa eskilerini (ilişki sırasına göre) sil.
+DROP TABLE IF EXISTS `urun_degerlendirmeleri`;
+DROP TABLE IF EXISTS `kullanici_favorileri`;
 DROP TABLE IF EXISTS `varyant_deger_iliskisi`;
 DROP TABLE IF EXISTS `urun_varyantlari`;
 DROP TABLE IF EXISTS `urun_nitelik_degerleri`;
@@ -28,6 +31,49 @@ CREATE TABLE `kullanicilar` (
   `kayit_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- --------------------------------------------------------
+
+CREATE TABLE `kategoriler` (
+  `kategori_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `kategori_adi` VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `urunler` (
+  `urun_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `kategori_id` INT NULL,
+  `urun_adi` VARCHAR(255) NOT NULL,
+  `aciklama` TEXT,
+  `resim_url` VARCHAR(255) NULL,
+  `ortalama_puan` DECIMAL(3, 2) DEFAULT 0.00,
+  `degerlendirme_sayisi` INT DEFAULT 0,
+  FOREIGN KEY (`kategori_id`) REFERENCES `kategoriler`(`kategori_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `urun_degerlendirmeleri` (
+  `degerlendirme_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `kullanici_id` INT NOT NULL,
+  `urun_id` INT NOT NULL,
+  `puan` INT NOT NULL CHECK (puan >= 1 AND puan <= 5),
+  `yorum` TEXT NULL,
+  `tarih` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`urun_id`) REFERENCES `urunler`(`urun_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `kullanici_favorileri` (
+  `favori_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `kullanici_id` INT NOT NULL,
+  `urun_id` INT NOT NULL,
+  UNIQUE (`kullanici_id`, `urun_id`),
+  FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`urun_id`) REFERENCES `urunler`(`urun_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- --------------------------------------------------------
 
 CREATE TABLE `kullanici_adresleri` (
@@ -81,27 +127,6 @@ CREATE TABLE `odeme_seanslari` (
   `olusturma_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- --------------------------------------------------------
-
-CREATE TABLE `kategoriler` (
-  `kategori_id` INT AUTO_INCREMENT PRIMARY KEY,
-  `kategori_adi` VARCHAR(100) NOT NULL,
-  `ust_kategori_id` INT NULL,
-  FOREIGN KEY (`ust_kategori_id`) REFERENCES `kategoriler`(`kategori_id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- --------------------------------------------------------
-
-CREATE TABLE `urunler` (
-  `urun_id` INT AUTO_INCREMENT PRIMARY KEY,
-  `kategori_id` INT NULL,
-  `urun_adi` VARCHAR(255) NOT NULL,
-  `aciklama` TEXT,
-  `resim_url` VARCHAR(255) NULL,
-  FOREIGN KEY (`kategori_id`) REFERENCES `kategoriler`(`kategori_id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- --------------------------------------------------------
 
 CREATE TABLE `urun_nitelikleri` (

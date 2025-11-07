@@ -17,11 +17,11 @@ class UrunService
     public function tumunuGetir(): array
     {
         try {
-            // Basit liste için sadece ana ürün bilgileri yeterli
-            $sql = "SELECT u.urun_id, u.urun_adi, u.resim_url, k.kategori_adi
+            // Ürün listesine puan ve değerlendirme sayısını ekle
+            $sql = "SELECT u.urun_id, u.urun_adi, u.resim_url, u.ortalama_puan, u.degerlendirme_sayisi, k.kategori_adi
                     FROM urunler u
                     LEFT JOIN kategoriler k ON u.kategori_id = k.kategori_id
-                    ORDER BY u.olusturma_tarihi DESC";
+                    ORDER BY u.urun_id DESC";
             $stmt = $this->pdo->query($sql);
             return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
         } catch (\Exception $e) {
@@ -30,15 +30,16 @@ class UrunService
     }
 
     /**
-     * Bir ürünün tüm detaylarını (kategori, nitelikler, varyantlar) getirir.
+     * Bir ürünün tüm detaylarını (kategori, nitelikler, varyantlar, puan, favori durumu) getirir.
      * @param int $id Ürün ID'si
+     * @param int|null $kullaniciId Mevcut kullanıcı ID'si (favori durumunu kontrol etmek için)
      * @return array
      */
-    public function idIleGetir(int $id): array
+    public function idIleGetir(int $id, ?int $kullaniciId = null): array
     {
         try {
-            // 1. Ana Ürün Bilgileri ve Kategori
-            $sql = "SELECT u.urun_id, u.urun_adi, u.aclama, u.resim_url as ana_resim,
+            // 1. Ana Ürün Bilgileri, Kategori ve Puan
+            $sql = "SELECT u.urun_id, u.urun_adi, u.aciklama, u.resim_url as ana_resim, u.ortalama_puan, u.degerlendirme_sayisi,
                            k.kategori_id, k.kategori_adi
                     FROM urunler u
                     LEFT JOIN kategoriler k ON u.kategori_id = k.kategori_id
@@ -77,15 +78,29 @@ class UrunService
             // 5. Ürünün Sahip Olduğu Tüm Olası Nitelikleri ve Değerlerini Bul
             $olasiNitelikler = $this->urunOlasıNitelikleriniGetir($id);
 
+            // 6. Favori Durumunu Kontrol Et
+            $kullanicininFavorisiMi = false;
+            if ($kullaniciId) {
+                $favSql = "SELECT COUNT(*) FROM kullanici_favorileri WHERE kullanici_id = ? AND urun_id = ?";
+                $favStmt = $this->pdo->prepare($favSql);
+                $favStmt->execute([$kullaniciId, $id]);
+                if ($favStmt->fetchColumn() > 0) {
+                    $kullanicininFavorisiMi = true;
+                }
+            }
+
             $response = [
                 'urun_id' => (int)$urun['urun_id'],
                 'urun_adi' => $urun['urun_adi'],
                 'aciklama' => $urun['aciklama'],
+                'ortalama_puan' => (float)$urun['ortalama_puan'],
+                'degerlendirme_sayisi' => (int)$urun['degerlendirme_sayisi'],
+                'kullanicinin_favorisi_mi' => $kullanicininFavorisiMi,
                 'kategori' => [
                     'kategori_id' => (int)$urun['kategori_id'],
                     'kategori_adi' => $urun['kategori_adi']
                 ],
-                'resimler' => [$urun['ana_resim']], // Geliştirilebilir: Birden çok resim tablosu
+                'resimler' => [$urun['ana_resim']],
                 'nitelikler' => $olasiNitelikler,
                 'varyantlar' => $sonucVaryantlar
             ];
@@ -226,5 +241,40 @@ class UrunService
         } catch (\Exception $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Kategoriye göre ürünler getirilirken bir hata oluştu.'];
         }
+    }
+
+    public function favoriyeEkle(int $kullaniciId, int $urunId): array
+    {
+        try {
+            $sql = "INSERT INTO kullanici_favorileri (kullanici_id, urun_id) VALUES (?, ?)";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$kullaniciId, $urunId]);
+            return ['basarili' => true, 'kod' => 201, 'mesaj' => 'Ürün favorilere eklendi.'];
+        } catch (\PDOException $e) {
+            if ($e->getCode() == 23000) { // Unique constraint
+                return ['basarili' => false, 'kod' => 409, 'mesaj' => 'Bu ürün zaten favorilerinizde.'];
+            }
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Favorilere eklenirken bir hata oluştu.'];
+        }
+    }
+
+    public function favoridenCikar(int $kullaniciId, int $urunId): array
+    {
+        $sql = "DELETE FROM kullanici_favorileri WHERE kullanici_id = ? AND urun_id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$kullaniciId, $urunId]);
+
+        if ($stmt->rowCount() > 0) {
+            return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Ürün favorilerden kaldırıldı.'];
+        }
+        return ['basarili' => false, 'kod' => 404, 'mesaj' => 'Kaldırılacak ürün favori listenizde bulunamadı.'];
+    }
+
+    public function favorileriListele(int $kullaniciId): array
+    {
+        $sql = "SELECT p.* FROM urunler p JOIN kullanici_favorileri f ON p.urun_id = f.urun_id WHERE f.kullanici_id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$kullaniciId]);
+        return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
     }
 }
