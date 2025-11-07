@@ -44,7 +44,7 @@ $router->get('/api/urunler/{id}', [\ProSiparis\Controller\UrunController::class,
 // Sipariş Rotaları (Kullanıcı Korumalı)
 $authMiddleware = \ProSiparis\Middleware\AuthMiddleware::class;
 $router->get('/api/siparisler', [\ProSiparis\Controller\SiparisController::class, 'gecmis'], [$authMiddleware]);
-$router->post('/api/siparisler', [\ProSiparis\Controller\SiparisController::class, 'olustur'], [$authMiddleware]);
+// POST /api/siparisler rotası kaldırıldı. Siparişler artık sadece ödeme callback'i ile oluşturulur.
 
 // Kullanıcı Profili Rotaları (Kullanıcı Korumalı)
 $router->get('/api/kullanici/profil', [\ProSiparis\Controller\KullaniciController::class, 'profilGetir'], [$authMiddleware]);
@@ -62,6 +62,19 @@ $router->delete('/api/admin/urunler/{id}', [\ProSiparis\Controller\UrunControlle
 // Admin: Sipariş Yönetimi
 $router->get('/api/admin/siparisler', [\ProSiparis\Controller\SiparisController::class, 'tumunuListele'], $adminProtected);
 $router->put('/api/admin/siparisler/{id}', [\ProSiparis\Controller\SiparisController::class, 'durumGuncelle'], $adminProtected);
+
+// Kullanıcı Adres Yönetimi Rotaları (Kullanıcı Korumalı)
+$router->get('/api/kullanici/adresler', [\ProSiparis\Controller\AdresController::class, 'listele'], [$authMiddleware]);
+$router->post('/api/kullanici/adresler', [\ProSiparis\Controller\AdresController::class, 'olustur'], [$authMiddleware]);
+$router->put('/api/kullanici/adresler/{id}', [\ProSiparis\Controller\AdresController::class, 'guncelle'], [$authMiddleware]);
+$router->delete('/api/kullanici/adresler/{id}', [\ProSiparis\Controller\AdresController::class, 'sil'], [$authMiddleware]);
+
+// Kargo Rotaları
+$router->get('/api/kargo-secenekleri', [\ProSiparis\Controller\KargoController::class, 'listele']); // Herkese açık
+
+// Ödeme Rotaları
+$router->post('/api/odeme/baslat', [\ProSiparis\Controller\OdemeController::class, 'baslat'], [$authMiddleware]);
+$router->post('/api/odeme/callback/iyzico', [\ProSiparis\Controller\OdemeController::class, 'callback']); // Webhook
 
 // Kategori Rotaları
 $router->get('/api/kategoriler', [\ProSiparis\Controller\KategoriController::class, 'listele']); // Herkese açık

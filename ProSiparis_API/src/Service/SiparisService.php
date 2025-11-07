@@ -82,12 +82,14 @@ class SiparisService
     /**
      * Yeni bir sipariş oluşturur ve stoktan düşer.
      * @param int $kullaniciId
-     * @param array $veri ['sepet']
+     * @param array $sepet
+     * @param int $teslimatAdresiId
+     * @param int $kargoId
      * @return array
      */
-    public function siparisOlustur(int $kullaniciId, array $veri): array
+    public function siparisOlustur(int $kullaniciId, array $sepet, int $teslimatAdresiId, int $kargoId): array
     {
-        if (!isset($veri['sepet']) || !is_array($veri['sepet']) || empty($veri['sepet'])) {
+        if (empty($sepet)) {
             return ['basarili' => false, 'kod' => 400, 'mesaj' => 'Sepet bilgileri zorunludur ve boş olamaz.'];
         }
 
@@ -95,7 +97,7 @@ class SiparisService
             $this->pdo->beginTransaction();
 
             $toplamTutar = 0;
-            foreach ($veri['sepet'] as $item) {
+            foreach ($sepet as $item) {
                 $stmt = $this->pdo->prepare("SELECT varyant_sku, fiyat, stok_adedi FROM urun_varyantlari WHERE varyant_id = ? FOR UPDATE");
                 $stmt->execute([$item['varyant_id']]);
                 $varyant = $stmt->fetch();
@@ -109,12 +111,12 @@ class SiparisService
                 $toplamTutar += $varyant['fiyat'] * $item['adet'];
             }
 
-            $sql = "INSERT INTO siparisler (kullanici_id, toplam_tutar) VALUES (?, ?)";
+            $sql = "INSERT INTO siparisler (kullanici_id, toplam_tutar, teslimat_adresi_id, kargo_id, durum) VALUES (?, ?, ?, ?, 'Hazirlaniyor')";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$kullaniciId, $toplamTutar]);
+            $stmt->execute([$kullaniciId, $toplamTutar, $teslimatAdresiId, $kargoId]);
             $siparisId = $this->pdo->lastInsertId();
 
-            foreach ($veri['sepet'] as $item) {
+            foreach ($sepet as $item) {
                  $stmt = $this->pdo->prepare("SELECT fiyat FROM urun_varyantlari WHERE varyant_id = ?");
                  $stmt->execute([$item['varyant_id']]);
                  $birimFiyat = $stmt->fetchColumn();
