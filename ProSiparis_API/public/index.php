@@ -1,101 +1,128 @@
 <?php
-// public/index.php - Front Controller
+// public/index.php - Front Controller v2.5
 
-// Hata raporlamayı aç
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// Composer Autoloader
-// Composer'ın oluşturduğu varsayılan autoload dosyasını dahil et
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
 } else {
-    // Bu fallback, Composer'ın çalışmadığı ortamlar için geçici bir çözümdür.
-    // Gerçek bir sunucuda `composer install` çalıştırılmalıdır.
     require_once __DIR__ . '/../vendor/manual_autoload.php';
 }
 
-// Yapılandırma dosyası
 require_once __DIR__ . '/../config/ayarlar.php';
-// Veritabanı bağlantısı
 require_once __DIR__ . '/../config/veritabani_baglantisi.php';
 
-// Temel başlıkları ayarla
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: OPTIONS,GET,POST,PUT,DELETE");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// İsteği ve Router'ı başlat
-$request = new \ProSiparis\Core\Request();
-$router = new \ProSiparis\Core\Router($request);
+use ProSiparis\Core\Request;
+use ProSiparis\Core\Router;
+use ProSiparis\Middleware\AuthMiddleware;
+use ProSiparis\Middleware\PermissionMiddleware;
+use ProSiparis\Controllers\KullaniciController;
+use ProSiparis\Controllers\UrunController;
+use ProSiparis\Controllers\SiparisController;
+use ProSiparis\Controllers\AdresController;
+use ProSiparis\Controllers\KargoController;
+use ProSiparis\Controllers\CouponController;
+use ProSiparis\Controllers\OdemeController;
+use ProSiparis\Controllers\ReviewController;
+use ProSiparis\Controllers\KategoriController;
+use ProSiparis\Controllers\DashboardController;
+
+$request = new Request();
+$router = new Router($request);
 
 // --- Rotaları Tanımla ---
 
 // Kimlik Doğrulama Rotaları
-$router->post('/api/kullanici/kayit', [\ProSiparis\Controller\KullaniciController::class, 'kayitOl']);
-$router->post('/api/kullanici/giris', [\ProSiparis\Controller\KullaniciController::class, 'girisYap']);
+$router->post('/api/kullanici/kayit', [KullaniciController::class, 'kayitOl']);
+$router->post('/api/kullanici/giris', [KullaniciController::class, 'girisYap']);
 
 // Ürün Rotaları (Herkese Açık)
-$router->get('/api/urunler', [\ProSiparis\Controller\UrunController::class, 'listele']);
-$router->get('/api/urunler/{id}', [\ProSiparis\Controller\UrunController::class, 'detay']);
+$router->get('/api/urunler', [UrunController::class, 'listele']);
+$router->get('/api/urunler/{id}', [UrunController::class, 'detay']);
 
-// Sipariş Rotaları (Kullanıcı Korumalı)
-$authMiddleware = \ProSiparis\Middleware\AuthMiddleware::class;
-$router->get('/api/siparisler', [\ProSiparis\Controller\SiparisController::class, 'gecmis'], [$authMiddleware]);
-$router->get('/api/siparisler/{id}', [\ProSiparis\Controller\SiparisController::class, 'detay'], [$authMiddleware]);
-// POST /api/siparisler rotası kaldırıldı. Siparişler artık sadece ödeme callback'i ile oluşturulur.
+// Kategori Rotaları (Herkese Açık)
+$router->get('/api/kategoriler', [KategoriController::class, 'listele']);
+$router->get('/api/kategoriler/{id}/urunler', [UrunController::class, 'kategoriyeGoreListele']);
 
-// Kullanıcı Profili Rotaları (Kullanıcı Korumalı)
-$router->get('/api/kullanici/profil', [\ProSiparis\Controller\KullaniciController::class, 'profilGetir'], [$authMiddleware]);
-$router->put('/api/kullanici/profil', [\ProSiparis\Controller\KullaniciController::class, 'profilGuncelle'], [$authMiddleware]);
+// Değerlendirme Rotaları (Herkese Açık)
+$router->get('/api/urunler/{id}/degerlendirmeler', [ReviewController::class, 'listele']);
 
-// Favori Rotaları (Kullanıcı Korumalı)
-$router->get('/api/kullanici/favoriler', [\ProSiparis\Controller\UrunController::class, 'favorileriListele'], [$authMiddleware]);
-$router->post('/api/kullanici/favoriler', [\ProSiparis\Controller\UrunController::class, 'favoriyeEkle'], [$authMiddleware]);
-$router->delete('/api/kullanici/favoriler/{id}', [\ProSiparis\Controller\UrunController::class, 'favoridenCikar'], [$authMiddleware]);
+// Kargo Rotaları (Herkese Açık)
+$router->get('/api/kargo-secenekleri', [KargoController::class, 'listele']);
 
-// --- Admin Rotaları (Admin Korumalı) ---
-$adminMiddleware = \ProSiparis\Middleware\AdminMiddleware::class;
-$adminProtected = [$authMiddleware, $adminMiddleware];
 
-// Admin: Ürün Yönetimi
-$router->post('/api/admin/urunler', [\ProSiparis\Controller\UrunController::class, 'olustur'], $adminProtected);
-$router->put('/api/admin/urunler/{id}', [\ProSiparis\Controller\UrunController::class, 'guncelle'], $adminProtected);
-$router->delete('/api/admin/urunler/{id}', [\ProSiparis\Controller\UrunController::class, 'sil'], $adminProtected);
+// --- Kullanıcı Korumalı Rotalar ---
+$auth = AuthMiddleware::class;
 
-// Admin: Sipariş Yönetimi
-$router->get('/api/admin/siparisler', [\ProSiparis\Controller\SiparisController::class, 'tumunuListele'], $adminProtected);
-$router->put('/api/admin/siparisler/{id}', [\ProSiparis\Controller\SiparisController::class, 'durumGuncelle'], $adminProtected);
+// Kişiselleştirme Rotası (Yeni Eklendi)
+$router->get('/api/kullanici/onerilen-urunler', [KullaniciController::class, 'onerilenUrunler'], [$auth]);
 
-// Kullanıcı Adres Yönetimi Rotaları (Kullanıcı Korumalı)
-$router->get('/api/kullanici/adresler', [\ProSiparis\Controller\AdresController::class, 'listele'], [$authMiddleware]);
-$router->post('/api/kullanici/adresler', [\ProSiparis\Controller\AdresController::class, 'olustur'], [$authMiddleware]);
-$router->put('/api/kullanici/adresler/{id}', [\ProSiparis\Controller\AdresController::class, 'guncelle'], [$authMiddleware]);
-$router->delete('/api/kullanici/adresler/{id}', [\ProSiparis\Controller\AdresController::class, 'sil'], [$authMiddleware]);
+// Sipariş Rotaları
+$router->get('/api/siparisler', [SiparisController::class, 'gecmis'], [$auth]);
+$router->get('/api/siparisler/{id}', [SiparisController::class, 'detay'], [$auth]);
 
-// Kargo Rotaları
-$router->get('/api/kargo-secenekleri', [\ProSiparis\Controller\KargoController::class, 'listele']); // Herkese açık
+// Kullanıcı Profili Rotaları
+$router->get('/api/kullanici/profil', [KullaniciController::class, 'profilGetir'], [$auth]);
+$router->put('/api/kullanici/profil', [KullaniciController::class, 'profilGuncelle'], [$auth]);
 
-// Kupon Rotaları
-$router->post('/api/sepet/kupon-dogrula', [\ProSiparis\Controller\CouponController::class, 'dogrula'], [$authMiddleware]);
+// Favori Rotaları
+$router->get('/api/kullanici/favoriler', [UrunController::class, 'favorileriListele'], [$auth]);
+$router->post('/api/kullanici/favoriler', [UrunController::class, 'favoriyeEkle'], [$auth]);
+$router->delete('/api/kullanici/favoriler/{id}', [UrunController::class, 'favoridenCikar'], [$auth]);
 
-// Ödeme Rotaları
-$router->post('/api/odeme/baslat', [\ProSiparis\Controller\OdemeController::class, 'baslat'], [$authMiddleware]);
-$router->post('/api/odeme/callback/iyzico', [\ProSiparis\Controller\OdemeController::class, 'callback']); // Webhook
+// Kullanıcı Adres Yönetimi
+$router->get('/api/kullanici/adresler', [AdresController::class, 'listele'], [$auth]);
+$router->post('/api/kullanici/adresler', [AdresController::class, 'olustur'], [$auth]);
+$router->put('/api/kullanici/adresler/{id}', [AdresController::class, 'guncelle'], [$auth]);
+$router->delete('/api/kullanici/adresler/{id}', [AdresController::class, 'sil'], [$auth]);
 
-// Değerlendirme Rotaları
-$router->get('/api/urunler/{id}/degerlendirmeler', [\ProSiparis\Controller\ReviewController::class, 'listele']); // Herkese açık
-$router->post('/api/urunler/{id}/degerlendirme', [\ProSiparis\Controller\ReviewController::class, 'olustur'], [$authMiddleware]);
-$router->delete('/api/degerlendirmeler/{id}', [\ProSiparis\Controller\ReviewController::class, 'sil'], [$authMiddleware]);
+// Kupon ve Ödeme
+$router->post('/api/sepet/kupon-dogrula', [CouponController::class, 'dogrula'], [$auth]);
+$router->post('/api/odeme/baslat', [OdemeController::class, 'baslat'], [$auth]);
+$router->post('/api/urunler/{id}/degerlendirme', [ReviewController::class, 'olustur'], [$auth]);
 
-// Kategori Rotaları
-$router->get('/api/kategoriler', [\ProSiparis\Controller\KategoriController::class, 'listele']); // Herkese açık
-$router->get('/api/kategoriler/{id}/urunler', [\ProSiparis\Controller\UrunController::class, 'kategoriyeGoreListele']); // Herkese açık
-$router->post('/api/admin/kategoriler', [\ProSiparis\Controller\KategoriController::class, 'olustur'], $adminProtected);
-$router->put('/api/admin/kategoriler/{id}', [\ProSiparis\Controller\KategoriController::class, 'guncelle'], $adminProtected);
-$router->delete('/api/admin/kategoriler/{id}', [\ProSiparis\Controller\KategoriController::class, 'sil'], $adminProtected);
+// Ödeme Callback (Public - Iyzico tarafından çağrılır)
+$router->post('/api/odeme/callback/iyzico', [OdemeController::class, 'callback']);
+
+
+// --- Admin Rotaları (Yetki Korumalı) ---
+
+// Dashboard Rotaları
+$dashboardYetkisi = [PermissionMiddleware::class, 'dashboard_goruntule'];
+$router->get('/api/admin/dashboard/kpi-ozet', [DashboardController::class, 'kpiOzet'], [$auth, $dashboardYetkisi]);
+$router->get('/api/admin/dashboard/satis-grafigi', [DashboardController::class, 'satisGrafigi'], [$auth, $dashboardYetkisi]);
+$router->get('/api/admin/dashboard/en-cok-satilan-urunler', [DashboardController::class, 'enCokSatilanUrunler'], [$auth, $dashboardYetkisi]);
+$router->get('/api/admin/dashboard/son-faaliyetler', [DashboardController::class, 'sonFaaliyetler'], [$auth, $dashboardYetkisi]);
+
+// Ürün Yönetimi
+$router->post('/api/admin/urunler', [UrunController::class, 'olustur'], [$auth, [PermissionMiddleware::class, 'urun_yarat']]);
+$router->put('/api/admin/urunler/{id}', [UrunController::class, 'guncelle'], [$auth, [PermissionMiddleware::class, 'urun_guncelle']]);
+$router->delete('/api/admin/urunler/{id}', [UrunController::class, 'sil'], [$auth, [PermissionMiddleware::class, 'urun_sil']]);
+
+// Kategori Yönetimi
+$router->post('/api/admin/kategoriler', [KategoriController::class, 'olustur'], [$auth, [PermissionMiddleware::class, 'urun_yarat']]);
+$router->put('/api/admin/kategoriler/{id}', [KategoriController::class, 'guncelle'], [$auth, [PermissionMiddleware::class, 'urun_guncelle']]);
+$router->delete('/api/admin/kategoriler/{id}', [KategoriController::class, 'sil'], [$auth, [PermissionMiddleware::class, 'urun_sil']]);
+
+// Sipariş Yönetimi
+$router->get('/api/admin/siparisler', [SiparisController::class, 'tumunuListele'], [$auth, [PermissionMiddleware::class, 'siparis_listele']]);
+$router->put('/api/admin/siparisler/{id}', [SiparisController::class, 'durumGuncelle'], [$auth, [PermissionMiddleware::class, 'siparis_durum_guncelle']]);
+
+// Değerlendirme Yönetimi
+$router->delete('/api/admin/degerlendirmeler/{id}', [ReviewController::class, 'sil'], [$auth, [PermissionMiddleware::class, 'degerlendirme_sil']]);
+
+// Kupon Yönetimi
+$router->get('/api/admin/kuponlar', [CouponController::class, 'listele'], [$auth, [PermissionMiddleware::class, 'kupon_listele']]);
+$router->post('/api/admin/kuponlar', [CouponController::class, 'olustur'], [$auth, [PermissionMiddleware::class, 'kupon_yarat']]);
+$router->put('/api/admin/kuponlar/{id}', [CouponController::class, 'guncelle'], [$auth, [PermissionMiddleware::class, 'kupon_guncelle']]);
+$router->delete('/api/admin/kuponlar/{id}', [CouponController::class, 'sil'], [$auth, [PermissionMiddleware::class, 'kupon_sil']]);
 
 
 // İsteği işle ve uygun rotayı çalıştır

@@ -15,7 +15,7 @@ class Router
      * GET metodu için bir rota tanımlar.
      * @param string $path
      * @param array $callback [ControllerSınıfı, metotAdı]
-     * @param array $middlewares
+     * @param array $middlewares ['MiddlewareSınıfı' veya ['MiddlewareSınıfı', 'parametre']]
      */
     public function get(string $path, array $callback, array $middlewares = [])
     {
@@ -88,8 +88,23 @@ class Router
 
         // Middleware'leri çalıştır
         foreach ($middlewares as $middleware) {
-            $instance = new $middleware();
-            $instance->handle($this->request);
+            $instance = null;
+            // Eğer middleware bir dizi ise, [Sınıf, Parametre] formatındadır.
+            if (is_array($middleware)) {
+                $middlewareClass = $middleware[0];
+                $middlewareParam = $middleware[1] ?? null;
+                if ($middlewareParam !== null) {
+                    $instance = new $middlewareClass($middlewareParam);
+                } else {
+                    $instance = new $middlewareClass();
+                }
+            } else { // Değilse, sadece Sınıf adıdır.
+                $instance = new $middleware();
+            }
+
+            if ($instance) {
+                $instance->handle($this->request);
+            }
         }
 
         // Controller'ı ve metodu çağır

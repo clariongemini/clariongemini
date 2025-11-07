@@ -1,8 +1,9 @@
 <?php
-namespace ProSiparis\Controller;
+namespace ProSiparis\Controllers;
 
 use ProSiparis\Service\AuthService;
 use ProSiparis\Service\KullaniciService;
+use ProSiparis\Service\RecommendationService; // Eklendi
 use ProSiparis\Core\Request;
 use ProSiparis\Core\Auth;
 
@@ -10,21 +11,20 @@ class KullaniciController
 {
     private AuthService $authService;
     private KullaniciService $kullaniciService;
+    private RecommendationService $recommendationService; // Eklendi
     private \PDO $pdo;
 
     public function __construct()
     {
-        // Gerçek bir uygulamada, bu bağımlılıklar (PDO) bir Dependency Injection Container
-        // aracılığıyla enjekte edilirdi. Şimdilik manuel olarak oluşturuyoruz.
-        global $pdo; // veritabani_baglantisi.php'den gelen global değişkeni kullan
+        global $pdo;
         $this->pdo = $pdo;
         $this->authService = new AuthService($this->pdo);
         $this->kullaniciService = new KullaniciService($this->pdo);
+        $this->recommendationService = new RecommendationService($this->pdo); // Eklendi
     }
 
     /**
      * POST /api/kullanici/kayit endpoint'ini yönetir.
-     * @param Request $request
      */
     public function kayitOl(Request $request): void
     {
@@ -35,12 +35,42 @@ class KullaniciController
 
     /**
      * POST /api/kullanici/giris endpoint'ini yönetir.
-     * @param Request $request
      */
     public function girisYap(Request $request): void
     {
         $veri = $request->getBody();
         $sonuc = $this->authService->girisYap($veri);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    /**
+     * GET /api/kullanici/profil endpoint'ini yönetir.
+     */
+    public function profilGetir(Request $request): void
+    {
+        $kullaniciId = Auth::id();
+        $sonuc = $this->kullaniciService->profilGetir($kullaniciId);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    /**
+     * PUT /api/kullanici/profil endpoint'ini yönetir.
+     */
+    public function profilGuncelle(Request $request): void
+    {
+        $kullaniciId = Auth::id();
+        $veri = $request->getBody();
+        $sonuc = $this->kullaniciService->profilGuncelle($kullaniciId, $veri);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    /**
+     * GET /api/kullanici/onerilen-urunler endpoint'ini yönetir.
+     */
+    public function onerilenUrunler(Request $request): void
+    {
+        $kullaniciId = Auth::id();
+        $sonuc = $this->recommendationService->getOnerilenUrunler($kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 
@@ -56,6 +86,9 @@ class KullaniciController
             if (isset($sonuc['veri'])) {
                 $response['veri'] = $sonuc['veri'];
             }
+             if (isset($sonuc['not'])) { // RecommendationService'den gelen not için eklendi
+                $response['not'] = $sonuc['not'];
+            }
             if (isset($sonuc['mesaj'])) {
                 $response['mesaj'] = $sonuc['mesaj'];
             }
@@ -66,28 +99,5 @@ class KullaniciController
                 'mesaj' => $sonuc['mesaj']
             ]);
         }
-    }
-
-    /**
-     * GET /api/kullanici/profil endpoint'ini yönetir.
-     * @param Request $request
-     */
-    public function profilGetir(Request $request): void
-    {
-        $kullaniciId = Auth::id();
-        $sonuc = $this->kullaniciService->profilGetir($kullaniciId);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    /**
-     * PUT /api/kullanici/profil endpoint'ini yönetir.
-     * @param Request $request
-     */
-    public function profilGuncelle(Request $request): void
-    {
-        $kullaniciId = Auth::id();
-        $veri = $request->getBody();
-        $sonuc = $this->kullaniciService->profilGuncelle($kullaniciId, $veri);
-        $this->jsonYanitGonder($sonuc);
     }
 }

@@ -1,34 +1,63 @@
--- ProSiparis_API Veritabanı Şeması v2.4
--- Sosyal Kanıt (Değerlendirme/Puan) ve Kullanıcı Etkileşimi (Favoriler) için güncellenmiştir.
+-- ProSiparis_API Veritabanı Şeması v2.5
+-- İleri Düzey Yetkilendirme (ACL), Admin Dashboard ve Kişiselleştirme için güncellenmiştir.
 
 -- Tabloları oluşturmadan önce, varsa eskilerini (ilişki sırasına göre) sil.
 DROP TABLE IF EXISTS `urun_degerlendirmeleri`;
 DROP TABLE IF EXISTS `kullanici_favorileri`;
+DROP TABLE IF EXISTS `siparis_detaylari`;
+DROP TABLE IF EXISTS `siparisler`;
+DROP TABLE IF EXISTS `kullanici_adresleri`;
+DROP TABLE IF EXISTS `odeme_seanslari`;
+DROP TABLE IF EXISTS `rol_yetki_iliskisi`;
+DROP TABLE IF EXISTS `kullanicilar`;
+DROP TABLE IF EXISTS `roller`;
+DROP TABLE IF EXISTS `yetkiler`;
 DROP TABLE IF EXISTS `varyant_deger_iliskisi`;
 DROP TABLE IF EXISTS `urun_varyantlari`;
 DROP TABLE IF EXISTS `urun_nitelik_degerleri`;
 DROP TABLE IF EXISTS `urun_nitelikleri`;
-DROP TABLE IF EXISTS `siparis_detaylari`;
-DROP TABLE IF EXISTS `siparisler`;
-DROP TABLE IF EXISTS `kullanici_adresleri`;
-DROP TABLE IF EXISTS `kargo_secenekleri`;
-DROP TABLE IF EXISTS `odeme_seanslari`;
 DROP TABLE IF EXISTS `kuponlar`;
 DROP TABLE IF EXISTS `urunler`;
 DROP TABLE IF EXISTS `kategoriler`;
-DROP TABLE IF EXISTS `kullanicilar`;
+DROP TABLE IF EXISTS `kargo_secenekleri`;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `roller` (
+  `rol_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `rol_adi` VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `yetkiler` (
+  `yetki_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `yetki_kodu` VARCHAR(100) NOT NULL UNIQUE,
+  `aciklama` VARCHAR(255) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `rol_yetki_iliskisi` (
+  `rol_id` INT NOT NULL,
+  `yetki_id` INT NOT NULL,
+  PRIMARY KEY (`rol_id`, `yetki_id`),
+  FOREIGN KEY (`rol_id`) REFERENCES `roller`(`rol_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`yetki_id`) REFERENCES `yetkiler`(`yetki_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
 CREATE TABLE `kullanicilar` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `rol_id` INT NOT NULL,
   `ad_soyad` VARCHAR(100) NOT NULL,
   `eposta` VARCHAR(100) NOT NULL UNIQUE,
   `parola` VARCHAR(255) NOT NULL,
-  `rol` VARCHAR(50) NOT NULL DEFAULT 'kullanici',
   `tercih_dil` VARCHAR(10) NOT NULL DEFAULT 'tr-TR',
   `tercih_tema` VARCHAR(10) NOT NULL DEFAULT 'system',
-  `kayit_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `kayit_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`rol_id`) REFERENCES `roller`(`rol_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
@@ -195,3 +224,58 @@ CREATE TABLE `siparis_detaylari` (
   FOREIGN KEY (`siparis_id`) REFERENCES `siparisler`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`varyant_id`) REFERENCES `urun_varyantlari`(`varyant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- --------------------------------------------------------
+-- BAŞLANGIÇ VERİLERİ (SEED DATA)
+-- --------------------------------------------------------
+
+-- 1. Roller
+INSERT INTO `roller` (`rol_id`, `rol_adi`) VALUES
+(1, 'super_admin'),
+(2, 'magaza_yoneticisi'),
+(3, 'siparis_yoneticisi'),
+(4, 'kullanici');
+
+-- 2. Yetkiler
+INSERT INTO `yetkiler` (`yetki_id`, `yetki_kodu`, `aciklama`) VALUES
+(1, 'urun_listele', 'Ürünleri listeleme yetkisi'),
+(2, 'urun_detay_goruntule', 'Tek bir ürünün detayını görme yetkisi'),
+(3, 'urun_yarat', 'Yeni ürün oluşturma yetkisi'),
+(4, 'urun_guncelle', 'Bir ürünü güncelleme yetkisi'),
+(5, 'urun_sil', 'Bir ürünü silme yetkisi'),
+(6, 'siparis_listele', 'Tüm siparişleri listeleme yetkisi'),
+(7, 'siparis_detay_goruntule', 'Tek bir siparişin detayını görme yetkisi'),
+(8, 'siparis_durum_guncelle', 'Bir siparişin durumunu güncelleme yetkisi'),
+(9, 'kupon_listele', 'Kuponları listeleme yetkisi'),
+(10, 'kupon_yarat', 'Yeni kupon oluşturma yetkisi'),
+(11, 'kupon_guncelle', 'Bir kuponu güncelleme yetkisi'),
+(12, 'kupon_sil', 'Bir kuponu silme yetkisi'),
+(13, 'degerlendirme_listele', 'Ürün değerlendirmelerini listeleme yetkisi'),
+(14, 'degerlendirme_sil', 'Bir ürün değerlendirmesini silme yetkisi'),
+(15, 'dashboard_goruntule', 'Admin paneli ana gösterge verilerini görme yetkisi');
+
+-- 3. Rol - Yetki İlişkileri
+-- super_admin (tüm yetkilere sahip)
+INSERT INTO `rol_yetki_iliskisi` (`rol_id`, `yetki_id`) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8), (1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1, 14), (1, 15);
+
+-- magaza_yoneticisi (Ürün, Kupon ve Değerlendirme Yönetimi)
+INSERT INTO `rol_yetki_iliskisi` (`rol_id`, `yetki_id`) VALUES
+(2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 9), (2, 10), (2, 11), (2, 12), (2, 13), (2, 14);
+
+-- siparis_yoneticisi (Sipariş Yönetimi)
+INSERT INTO `rol_yetki_iliskisi` (`rol_id`, `yetki_id`) VALUES
+(3, 6), (3, 7), (3, 8);
+
+-- kullanici (Hiçbir admin yetkisi yok)
+-- Bu rol için `rol_yetki_iliskisi` tablosuna kayıt girilmez.
+
+-- 4. Test Kullanıcıları
+-- Parola: 'SuperAdmin123!'
+INSERT INTO `kullanicilar` (`id`, `rol_id`, `ad_soyad`, `eposta`, `parola`) VALUES
+(1, 1, 'Super Admin', 'admin@prosiparis.com', '$2y$10$E/g0j4Ug.g.y0J14TzKZ3.UDE4wsU.S2aP0/5Pz2.h.bE5NUD4NlG');
+
+-- Parola: 'Kullanici123!'
+INSERT INTO `kullanicilar` (`id`, `rol_id`, `ad_soyad`, `eposta`, `parola`) VALUES
+(2, 4, 'Ali Veli', 'kullanici@prosiparis.com', '$2y$10$wT3/p0k.Xq9dce68Bsf6CeU0I0b2h1J2lK2.ZJ2.Xz0bJ5L1n8xJq');

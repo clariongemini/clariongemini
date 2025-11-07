@@ -1,6 +1,8 @@
-# ProSiparis API v2.4 - Profesyonel E-Ticaret API
+# ProSiparis API v2.5 - Profesyonel E-Ticaret API
 
 Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, modern PHP standartlarına uygun, güvenli ve tam teşekküllü bir e-ticaret backend (API) sunucusudur.
+
+**v2.5 Yenilikleri:** Bu sürüm, API'nin temel güvenlik altyapısını modernize ederek Yetki Bazlı Erişim Kontrolü (ACL) sistemine geçiş yapmış, yöneticiler için güçlü bir analitik API'si eklemiş ve kullanıcılara kişiselleştirilmiş ürün önerileri sunmaya başlamıştır.
 
 ---
 
@@ -8,58 +10,70 @@ Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, modern PHP stand
 
 1.  **Gerekli Araçlar:** PHP >= 7.4, Composer, MySQL, Apache (veya `.htaccess` destekli başka bir web sunucusu).
 2.  **Projeyi Kurma:** Projenin ana dizininde `composer install` komutunu çalıştırın.
-3.  **Veritabanı Oluşturma:** `schema.sql` dosyasını (v2.4) veritabanınıza içe aktarın.
+3.  **Veritabanı Oluşturma:** `schema.sql` dosyasını (**v2.5**) veritabanınıza içe aktarın. Bu şema, yeni ACL tablolarını ve başlangıç verilerini (roller, yetkiler) içerir.
 4.  **Yapılandırma:** Gerekli veritabanı, JWT, SMTP ve Iyzico ayarlarını `config/` klasöründeki dosyalarda düzenleyin.
 5.  **Web Sunucusu:** Sunucunuzun "Document Root" olarak projenin `public/` klasörünü göstermesi tavsiye edilir.
 
 ---
 
-## Versiyon Geçmişi
+## Temel Konseptler: Yetki Bazlı Erişim Kontrolü (ACL)
 
-### v2.4: Sosyal Kanıt ve Kullanıcı Etkileşimi
+v2.5 ile birlikte sistem, basit 'admin' ve 'kullanici' rollerinden, granüler **yetki bazlı** bir sisteme geçmiştir.
 
-Bu sürüm, kullanıcıların platformla etkileşimini artırır ve sosyal kanıt mekanizmaları ekler.
-
--   **Ürün Değerlendirme ve Puanlama:** Kullanıcılar artık durumu "Teslim Edildi" olan siparişlerindeki ürünlere 1-5 arası puan verebilir ve yorum yazabilir.
--   **Denormalize Edilmiş Puanlar:** Ürün listeleme performansını artırmak için `urunler` tablosu artık `ortalama_puan` ve `degerlendirme_sayisi`'nı doğrudan tutar ve her yeni değerlendirmede otomatik güncellenir.
--   **Favori / İstek Listesi:** Kullanıcılar ilgilendikleri ürünleri favori listelerine ekleyebilir, çıkarabilir ve listeleyebilir.
--   **Zenginleştirilmiş API Yanıtları:** Ürün listeleme ve detay endpoint'leri artık ortalama puan ve (giriş yapmış kullanıcı için) favori durumunu da döndürür.
-
-### v2.3: Lojistik, Bildirimler ve Promosyon Motoru
--   **Promosyon/Kupon Sistemi, Otomatik E-posta Bildirimleri, Sipariş Lojistiği Takibi.**
-
-### v2.2: Tam Kapsamlı Ödeme (Checkout) ve Lojistik
--   **Kullanıcı Adres Yönetimi (CRUD), Kargo Seçenekleri, Iyzico Entegrasyonu ve Webhook.**
-
-### v2.1: Gelişmiş Katalog ve Envanter Yönetimi
--   **Ürün Varyantları, Kategoriler ve Gerçek Zamanlı Stok Kontrolü.**
-
-### v2.0: Mimari Modernizasyon
--   **Front Controller Mimarisi, Composer, JWT/RBAC Güvenliği.**
+-   **Roller:** Kullanıcılara atanan etiketlerdir (örn: `super_admin`, `magaza_yoneticisi`, `kullanici`).
+-   **Yetkiler:** Belirli bir eylemi gerçekleştirme hakkıdır (örn: `urun_yarat`, `siparis_durum_guncelle`, `dashboard_goruntule`).
+-   **İşleyiş:** Bir kullanıcı giriş yaptığında, rolüne atanmış tüm yetkiler listesi JWT'nin içine gömülür. API'de yetki korumalı bir endpoint çağrıldığında, `PermissionMiddleware` bu JWT içindeki listeyi kontrol eder. Bu sayede her istekte veritabanı sorgusu yapılmasına gerek kalmaz.
 
 ---
 
-## API Endpoint'leri (v2.4)
+## Versiyon Geçmişi
 
-_v2.3'e eklenenler ve güncellenenler aşağıdadır._
+### v2.5: ACL, Admin Dashboard ve Kişiselleştirme Motoru
+-   **İleri Düzey Yetkilendirme (ACL):** Rol tabanlı sistemden yetki tabanlı sisteme geçiş yapıldı.
+-   **Admin Dashboard API'si:** Yöneticiler için KPI, satış grafiği gibi kritik verileri sunan endpoint'ler eklendi.
+-   **Kişiselleştirme Motoru:** Kullanıcının geçmiş etkileşimlerine göre ürün önerileri sunan bir API eklendi.
 
-### Herkese Açık Endpoint'ler (Güncellenmiş)
+### v2.4: Sosyal Kanıt ve Kullanıcı Etkileşimi
+-   **Ürün Değerlendirme/Puanlama ve Favori/İstek Listesi özellikleri eklendi.**
 
--   **`GET /api/urunler` (GÜNCELLENDİ)**: Dönen her ürün objesi artık `ortalama_puan` ve `degerlendirme_sayisi` alanlarını içerir.
--   **`GET /api/urunler/{id}` (GÜNCELLENDİ)**: Dönen ürün objesi artık `ortalama_puan`, `degerlendirme_sayisi` ve (giriş yapılmışsa) `kullanicinin_favorisi_mi` alanlarını içerir.
--   **`GET /api/urunler/{id}/degerlendirmeler` (YENİ)**: Bir ürüne ait tüm değerlendirmeleri (yorum, puan, kullanıcı adı) listeler.
+(Önceki versiyonlar için projenin git geçmişine bakınız.)
+
+---
+
+## API Endpoint'leri (v2.5)
+
+### Admin Korumalı Endpoint'ler (YENİ & GÜNCELLENMİŞ)
+_Tüm admin endpoint'leri artık `AuthMiddleware` ve `PermissionMiddleware` tarafından korunmaktadır. Gerekli yetki JWT içinde bulunmalıdır._
+
+#### **Admin Dashboard API (YENİ)**
+-   **Yetki:** `dashboard_goruntule`
+-   **`GET /api/admin/dashboard/kpi-ozet`**: Temel iş metriklerini (bugünkü satış, bekleyen sipariş vb.) döndürür.
+-   **`GET /api/admin/dashboard/satis-grafigi`**: Son 30 günün satış verilerini grafik için döndürür.
+-   **`GET /api/admin/dashboard/en-cok-satilan-urunler`**: En çok satan 10 ürünü listeler.
+-   **`GET /api/admin/dashboard/son-faaliyetler`**: Son 5 sipariş ve son 5 yorumu listeler.
+
+#### **Ürün & Kategori Yönetimi**
+-   **`POST /api/admin/urunler`**: Yetki: `urun_yarat`
+-   **`PUT /api/admin/urunler/{id}`**: Yetki: `urun_guncelle`
+-   **`DELETE /api/admin/urunler/{id}`**: Yetki: `urun_sil`
+-   (Kategori endpoint'leri de benzer şekilde `urun_yarat`, `urun_guncelle`, `urun_sil` yetkilerini kullanır.)
+
+#### **Sipariş Yönetimi**
+-   **`GET /api/admin/siparisler`**: Yetki: `siparis_listele`
+-   **`PUT /api/admin/siparisler/{id}`**: Yetki: `siparis_durum_guncelle`
+
+#### **Kupon Yönetimi**
+-   **`GET /api/admin/kuponlar`**: Yetki: `kupon_listele`
+-   **`POST /api/admin/kuponlar`**: Yetki: `kupon_yarat`
+-   **`PUT /api/admin/kuponlar/{id}`**: Yetki: `kupon_guncelle`
+-   **`DELETE /api/admin/kuponlar/{id}`**: Yetki: `kupon_sil`
+
+#### **Değerlendirme Yönetimi**
+-   **`DELETE /api/admin/degerlendirmeler/{id}`**: Yetki: `degerlendirme_sil`
 
 ### Kullanıcı Korumalı Endpoint'ler (`Authorization: Bearer <token>` Gerekli)
 
--   **`POST /api/urunler/{id}/degerlendirme` (YENİ)**: Bir ürüne puan ve yorum ekler. Kullanıcının ürünü satın almış ve teslim almış olması gerekir.
-    -   **Body:** `{ "puan": 5, "yorum": "Harika ürün!" }`
--   **`DELETE /api/degerlendirmeler/{id}` (YENİ)**: Kullanıcının kendi değerlendirmesini silmesini sağlar.
--   **`GET /api/kullanici/favoriler` (YENİ)**: Kullanıcının favori ürünlerini listeler.
--   **`POST /api/kullanici/favoriler` (YENİ)**: Bir ürünü favorilere ekler.
-    -   **Body:** `{ "urun_id": 123 }`
--   **`DELETE /api/kullanici/favoriler/{urun_id}` (YENİ)**: Bir ürünü favorilerden kaldırır.
+#### **Kişiselleştirme (YENİ)**
+-   **`GET /api/kullanici/onerilen-urunler`**: Kullanıcının geçmiş etkileşimlerine (siparişler, favoriler) dayalı olarak kişiselleştirilmiş ürün önerileri sunar. Yeterli veri yoksa genel popüler ürünleri döndürür.
 
-### Admin Korumalı Endpoint'ler (Güncellenmiş)
-
--   **`PUT /api/admin/siparisler/{id}` (GÜNCELLENDİ)**: Sipariş durumu artık "Teslim Edildi" olarak da güncellenebilir.
--   **`DELETE /api/degerlendirmeler/{id}` (YETKİ GÜNCELLEMESİ)**: Adminler de bu endpoint ile herhangi bir değerlendirmeyi silebilir.
+(Diğer kullanıcı ve herkese açık endpoint'ler v2.4 ile aynıdır.)
