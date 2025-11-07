@@ -5,7 +5,8 @@
     "require": {
         "php": ">=7.4",
         "firebase/php-jwt": "^6.3",
-        "iyzico/iyzipay-php": "^2.0"
+        "iyzico/iyzipay-php": "^2.0",
+        "symfony/mailer": "^6.4"
     },
     "autoload": {
         "psr-4": {

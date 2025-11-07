@@ -16,12 +16,14 @@ class PaymentService
 {
     private PDO $pdo;
     private $options;
+    private CouponService $couponService;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
         require_once __DIR__ . '/../../config/iyzico_ayarlar.php';
         $this->options = IYZICO_OPTIONS;
+        $this->couponService = new CouponService($pdo);
     }
 
     public function odemeBaslat(int $kullaniciId, array $veri): array
@@ -65,6 +67,19 @@ class PaymentService
             }
 
             $genelTutar = $sepetTutar + $kargo['ucret'];
+            $indirimTutari = 0;
+            $kuponKodu = $veri['kupon_kodu'] ?? null;
+
+            // Kupon varsa doğrula ve uygula
+            if ($kuponKodu) {
+                $kuponSonuc = $this->couponService->kuponDogrula($kuponKodu, $sepetTutar);
+                if ($kuponSonuc['gecerli']) {
+                    $indirimTutari = $kuponSonuc['indirim_tutari'];
+                    $genelTutar = max(0, $genelTutar - $indirimTutari);
+                } else {
+                    return ['basarili' => false, 'kod' => 400, 'mesaj' => $kuponSonuc['mesaj']];
+                }
+            }
 
             // 3. Iyzico isteğini oluştur
             $conversationId = "CONV-" . $kullaniciId . "-" . uniqid();
@@ -113,14 +128,16 @@ class PaymentService
 
             // Ödeme formunu başlat
             // 4. Ödeme seansını veritabanına kaydet
-            $seansSql = "INSERT INTO odeme_seanslari (conversation_id, kullanici_id, sepet_verisi, adres_verisi, kargo_id) VALUES (?, ?, ?, ?, ?)";
+            $seansSql = "INSERT INTO odeme_seanslari (conversation_id, kullanici_id, sepet_verisi, adres_verisi, kargo_id, kullanilan_kupon_kodu, indirim_tutari) VALUES (?, ?, ?, ?, ?, ?, ?)";
             $seansStmt = $this->pdo->prepare($seansSql);
             $seansStmt->execute([
                 $conversationId,
                 $kullaniciId,
                 json_encode($veri['sepet']),
                 json_encode(['teslimat_adresi_id' => $veri['teslimat_adresi_id'], 'fatura_adresi_id' => $veri['fatura_adresi_id']]),
-                $veri['kargo_id']
+                $veri['kargo_id'],
+                $kuponKodu,
+                $indirimTutari
             ]);
 
             // 5. Iyzico ile ödeme formunu başlat

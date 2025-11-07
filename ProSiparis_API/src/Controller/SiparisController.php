@@ -83,8 +83,17 @@ class SiparisController
     public function durumGuncelle(Request $request, int $id): void
     {
         $veri = $request->getBody();
-        $yeniDurum = $veri['durum'] ?? '';
-        $sonuc = $this->siparisService->siparisDurumGuncelle($id, $yeniDurum);
+        $sonuc = $this->siparisService->siparisDurumGuncelle($id, $veri);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    /**
+     * GET /api/siparisler/{id}
+     */
+    public function detay(Request $request, int $id): void
+    {
+        $kullaniciId = Auth::id();
+        $sonuc = $this->siparisService->idIleGetir($id, $kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 }

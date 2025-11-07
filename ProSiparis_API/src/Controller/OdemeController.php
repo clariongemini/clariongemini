@@ -47,21 +47,32 @@ class OdemeController
 
             global $pdo;
             $siparisService = new \ProSiparis\Service\SiparisService($pdo);
-            // SiparisService'i yeni veri yapısıyla çağır
+            // SiparisService'i yeni veri yapısıyla çağır (kupon bilgileri dahil)
             $siparisSonuc = $siparisService->siparisOlustur(
                 $siparisVerisi['kullanici_id'],
                 $siparisVerisi['sepet'],
                 $siparisVerisi['adresler']['teslimat_adresi_id'],
-                $siparisVerisi['kargo_id']
+                $siparisVerisi['kargo_id'],
+                $siparisVerisi['kullanilan_kupon_kodu'] ?? null,
+                $siparisVerisi['indirim_tutari'] ?? 0
             );
 
             if ($siparisSonuc['basarili']) {
+                // E-posta gönderimini tetikle
+                $mailService = new \ProSiparis\Service\MailService();
+                $kullanici = $pdo->query("SELECT eposta FROM kullanicilar WHERE id = " . $siparisVerisi['kullanici_id'])->fetch();
+                if ($kullanici) {
+                    $mailService->sendOrderConfirmation($kullanici['eposta'], $siparisSonuc['veri']);
+                }
+
                 http_response_code(200);
                 echo "OK";
             } else {
-                error_log("Iyzico ödemesi başarılı ancak sipariş oluşturulamadı: " . $siparisSonuc['mesaj']);
+                // KRİTİK HATA: Ödeme alındı ama sipariş oluşturulamadı.
+                error_log("KRİTİK HATA: Iyzico ödemesi başarılı ancak sipariş oluşturulamadı. Detaylar: " . $siparisSonuc['mesaj']);
+
                 http_response_code(500);
-                echo "ORDER_CREATION_FAILED";
+                echo "INTERNAL_ORDER_CREATION_FAILURE";
             }
         } else {
             error_log("Iyzico callback hatası: " . $sonuc['mesaj']);

@@ -44,6 +44,7 @@ $router->get('/api/urunler/{id}', [\ProSiparis\Controller\UrunController::class,
 // Sipariş Rotaları (Kullanıcı Korumalı)
 $authMiddleware = \ProSiparis\Middleware\AuthMiddleware::class;
 $router->get('/api/siparisler', [\ProSiparis\Controller\SiparisController::class, 'gecmis'], [$authMiddleware]);
+$router->get('/api/siparisler/{id}', [\ProSiparis\Controller\SiparisController::class, 'detay'], [$authMiddleware]);
 // POST /api/siparisler rotası kaldırıldı. Siparişler artık sadece ödeme callback'i ile oluşturulur.
 
 // Kullanıcı Profili Rotaları (Kullanıcı Korumalı)
@@ -71,6 +72,9 @@ $router->delete('/api/kullanici/adresler/{id}', [\ProSiparis\Controller\AdresCon
 
 // Kargo Rotaları
 $router->get('/api/kargo-secenekleri', [\ProSiparis\Controller\KargoController::class, 'listele']); // Herkese açık
+
+// Kupon Rotaları
+$router->post('/api/sepet/kupon-dogrula', [\ProSiparis\Controller\CouponController::class, 'dogrula'], [$authMiddleware]);
 
 // Ödeme Rotaları
 $router->post('/api/odeme/baslat', [\ProSiparis\Controller\OdemeController::class, 'baslat'], [$authMiddleware]);

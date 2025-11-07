@@ -1,5 +1,5 @@
--- ProSiparis_API Veritabanı Şeması v2.2
--- Ödeme Akışı, Adres ve Kargo Yönetimi için güncellenmiştir.
+-- ProSiparis_API Veritabanı Şeması v2.3
+-- Promosyon Motoru, Lojistik ve Bildirimler için güncellenmiştir.
 
 DROP TABLE IF EXISTS `varyant_deger_iliskisi`;
 DROP TABLE IF EXISTS `urun_varyantlari`;
@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS `siparisler`;
 DROP TABLE IF EXISTS `kullanici_adresleri`;
 DROP TABLE IF EXISTS `kargo_secenekleri`;
 DROP TABLE IF EXISTS `odeme_seanslari`;
+DROP TABLE IF EXISTS `kuponlar`;
 DROP TABLE IF EXISTS `urunler`;
 DROP TABLE IF EXISTS `kategoriler`;
 DROP TABLE IF EXISTS `kullanicilar`;
@@ -53,6 +54,20 @@ CREATE TABLE `kargo_secenekleri` (
 
 -- --------------------------------------------------------
 
+CREATE TABLE `kuponlar` (
+  `kupon_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `kupon_kodu` VARCHAR(50) NOT NULL UNIQUE,
+  `indirim_tipi` ENUM('yuzde', 'sabit_tutar') NOT NULL,
+  `indirim_degeri` DECIMAL(10, 2) NOT NULL,
+  `son_kullanma_tarihi` DATETIME NULL,
+  `minimum_sepet_tutari` DECIMAL(10, 2) DEFAULT 0.00,
+  `kullanim_limiti` INT NULL,
+  `kac_kez_kullanildi` INT DEFAULT 0,
+  `aktif_mi` BOOLEAN DEFAULT TRUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
 CREATE TABLE `odeme_seanslari` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `conversation_id` VARCHAR(255) NOT NULL UNIQUE,
@@ -60,6 +75,8 @@ CREATE TABLE `odeme_seanslari` (
   `sepet_verisi` JSON NOT NULL,
   `adres_verisi` JSON NOT NULL,
   `kargo_id` INT NOT NULL,
+  `kullanilan_kupon_kodu` VARCHAR(50) NULL,
+  `indirim_tutari` DECIMAL(10, 2) DEFAULT 0.00,
   `durum` VARCHAR(50) DEFAULT 'baslatildi',
   `olusturma_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar`(`id`) ON DELETE CASCADE
@@ -132,7 +149,11 @@ CREATE TABLE `siparisler` (
   `kargo_id` INT NOT NULL,
   `siparis_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `toplam_tutar` DECIMAL(10, 2) NOT NULL,
+  `indirim_tutari` DECIMAL(10, 2) DEFAULT 0.00,
+  `kullanilan_kupon_kodu` VARCHAR(50) NULL,
   `durum` VARCHAR(50) DEFAULT 'Odeme Bekleniyor',
+  `kargo_firmasi` VARCHAR(100) NULL,
+  `kargo_takip_kodu` VARCHAR(100) NULL,
   FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`teslimat_adresi_id`) REFERENCES `kullanici_adresleri`(`adres_id`),
   FOREIGN KEY (`kargo_id`) REFERENCES `kargo_secenekleri`(`kargo_id`)

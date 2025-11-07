@@ -29,3 +29,11 @@ define('JWT_ISSUER', 'ProSiparisAPI');
 
 // Token'ın hangi kitleye yönelik olduğunu belirten bilgi (isteğe bağlı ama önerilir).
 define('JWT_AUDIENCE', 'ProSiparisApp');
+
+// --- E-posta (SMTP) Ayarları ---
+define('SMTP_HOST', 'smtp.example.com');
+define('SMTP_PORT', 587);
+define('SMTP_USER', 'user@example.com');
+define('SMTP_PASS', 'your_smtp_password');
+define('SMTP_FROM_ADDRESS', 'destek@prosiparis.com');
+define('SMTP_FROM_NAME', 'ProSiparis Destek');
