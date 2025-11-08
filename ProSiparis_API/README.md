@@ -1,8 +1,8 @@
-# ProSiparis API v2.6 - Akıllı E-Ticaret API Motoru
+# ProSiparis API v2.7 - B2B & Fulfillment Yetenekli E-Ticaret API'si
 
-Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, modern PHP standartlarına uygun, proaktif ve tam teşekküllü bir e-ticaret backend (API) sunucusudur.
+Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, hem B2C hem de B2B senaryolarını destekleyen, operasyonel verimliliği artırılmış, modern ve proaktif bir e-ticaret backend (API) sunucusudur.
 
-**v2.6 Yenilikleri:** Bu sürüm, API'yi reaktif bir veri sağlayıcıdan proaktif bir iş ortağına dönüştürür. Pazarlama otomasyonu, headless CMS ve entegre müşteri desteği gibi özelliklerle donatılmıştır.
+**v2.7 Yenilikleri:** Bu sürüm, API'ye iki temel kurumsal yetenek kazandırır: farklı müşteri gruplarına farklı fiyatlar sunabilen dinamik bir B2B fiyatlandırma altyapısı ve sipariş hazırlama süreçlerini yöneten özel bir Depo Operasyonları (Fulfillment) API'si.
 
 ---
 
@@ -10,51 +10,49 @@ Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, modern PHP stand
 
 1.  **Gerekli Araçlar:** PHP >= 7.4, Composer, MySQL, Apache (veya `.htaccess` destekli başka bir web sunucusu).
 2.  **Projeyi Kurma:** Projenin ana dizininde `composer install` komutunu çalıştırın.
-3.  **Veritabanı Oluşturma:** `schema.sql` dosyasını (**v2.6**) veritabanınıza içe aktarın. Bu şema, yeni destek, cms ve kalıcı sepet tablolarını içerir.
-4.  **Yapılandırma:** `config/ayarlar.php` dosyasında veritabanı, JWT, SMTP gibi ayarların yanı sıra, otomasyon motorunu tetiklemek için kullanılacak olan **`CRON_SECRET_KEY`** sabitini de güvenli bir değerle güncelleyin.
-5.  **Sunucu Ayarları:**
-    *   Web sunucunuzun "Document Root" olarak projenin `public/` klasörünü göstermesi tavsiye edilir.
-    *   Otomasyon motorunun çalışması için, sunucunuza saat başı `/api/cron/run` endpoint'ine `Authorization: Bearer <CRON_SECRET_KEY>` başlığı ile `POST` isteği atacak bir **cron job** (zamanlanmış görev) kurun.
+3.  **Veritabanı Oluşturma:** `schema.sql` dosyasını (**v2.7**) veritabanınıza içe aktarın. Bu şema, yeni B2B fiyatlandırma ve depo operasyonları için gerekli tüm tabloları ve ACL verilerini içerir.
+4.  **Yapılandırma:** `config/ayarlar.php` dosyasında `CRON_SECRET_KEY` dahil tüm gerekli ayarları yapın.
+5.  **Sunucu Ayarları:** `public/` klasörünü "Document Root" olarak ayarlayın ve `/api/cron/run` endpoint'ini tetikleyecek bir cron job kurun.
 
 ---
 
-## Temel Konseptler
+## Temel Konseptler (v2.7 Güncellemeleri)
 
-### Yetki Bazlı Erişim Kontrolü (ACL)
-(v2.5'ten devam ediyor) Sistem, granüler **yetki bazlı** bir güvenlik modeline sahiptir. Admin endpoint'leri, belirli eylemleri gerçekleştirme hakkı tanıyan yetkilerle (`urun_yonet`, `destek_yonet` vb.) korunur.
+### Dinamik B2B Fiyatlandırma (YENİ)
+Sistem artık `fiyat_listeleri` ve `varyant_fiyatlari` tabloları sayesinde her bir ürün varyantına birden fazla fiyat atayabilmektedir.
+-   Her `rol` (örn: "kullanici", "bayi"), bir `fiyat_listesi_id`'ye bağlanmıştır.
+-   Kullanıcı giriş yaptığında, bu `fiyat_listesi_id`, JWT'nin içine gömülür.
+-   Tüm ürün ve ödeme servisleri, fiyatları bu ID'ye göre dinamik ve güvenli bir şekilde sunar. Böylece bir "bayi", "kullanici" ile aynı ürüne bakarken otomatik olarak kendi özel fiyatını görür.
 
-### Proaktif Otomasyon Motoru (YENİ)
-v2.6 ile API, zamanlanmış görevlerle (cron job) tetiklenen bir otomasyon motoruna sahiptir. Bu motor, `AutomationService` aracılığıyla şu anda iki senaryoyu yönetir:
-1.  **Terk Edilmiş Sepet:** 24 saattir bekleyen ve siparişe dönüşmemiş sepetleri tespit edip kullanıcılara hatırlatma e-postası gönderir.
-2.  **Pasif Kullanıcı:** 60 gündür sipariş vermemiş kullanıcılara, onları geri kazanmak için kişiye özel indirim kuponları oluşturur ve e-posta ile bilgilendirir.
+### Depo Operasyonları (Fulfillment) API'si (YENİ)
+Sipariş hazırlama süreci, "admin" yetkilerinden tamamen ayrıştırılmıştır. Yeni `depo_gorevlisi` rolü, sadece sipariş toplama, paketleme ve kargolama işlemlerini yapabileceği kısıtlı bir API setine erişebilir.
+-   **Yetkiler:** `siparis_toplama_listesi_gor` ve `siparis_kargola`.
+-   **Görev Ayrımı:** "Kargoya Verildi" durumu artık sadece Depo API'si üzerinden atanabilir. Adminler, sadece "Teslim Edildi" veya "İptal Edildi" gibi nihai durumları yönetir.
 
 ---
 
-## API Endpoint'leri (v2.6)
+## API Endpoint'leri (v2.7)
 
-### Herkese Açık Endpoint'ler (YENİ)
--   **`GET /api/sayfa/{slug}`**: "hakkimizda", "kvkk" gibi statik sayfaların içeriğini döndürür.
--   **`GET /api/bannerlar?konum=anasayfa_ust`**: Mobil uygulamanın ana sayfasında gösterilecek banner'ları listeler.
+### Herkese Açık ve Kullanıcı Endpoint'leri (GÜNCELLENMİŞ)
 
-### Kullanıcı Korumalı Endpoint'ler (YENİ)
--   **`GET /api/sepet`**: Kullanıcının sunucuda saklanan sepetini ve içindeki ürünleri döndürür. Cihazlar arası senkronizasyon sağlar.
--   **`POST /api/sepet/guncelle`**: Kullanıcının sepetini günceller. Mobil uygulama, sepete her ürün eklendiğinde/çıkarıldığında bu endpoint'i çağırmalıdır.
-    -   **Body:** `{ "urunler": { "varyant_id_1": adet, "varyant_id_2": adet } }`
--   **`GET /api/kullanici/destek-talepleri`**: Kullanıcının tüm destek taleplerini listeler.
--   **`POST /api/kullanici/destek-talepleri`**: Yeni bir destek talebi oluşturur.
--   **`GET /api/kullanici/destek-talepleri/{id}`**: Bir talebin tüm mesajlaşma geçmişini getirir.
--   **`POST /api/kullanici/destek-talepleri/{id}/mesaj`**: Mevcut bir talebe yeni bir mesaj ekler.
+-   **`GET /api/urunler` & `GET /api/urunler/{id}` (Davranış Güncellendi)**
+    -   Bu endpoint'ler artık, giriş yapmış olan kullanıcının rolüne (B2C veya B2B) göre dinamik olarak doğru fiyatları gösterir. Giriş yapılmamışsa, varsayılan perakende fiyatları kullanılır.
 
-### Admin Korumalı Endpoint'ler (YENİ)
--   **Headless CMS Yönetimi (Yetki: `cms_yonet`)**
-    -   `GET, POST /api/admin/sayfalar`
-    -   `PUT, DELETE /api/admin/sayfalar/{id}`
-    -   `GET, POST /api/admin/bannerlar`
-    -   `PUT, DELETE /api/admin/bannerlar/{id}`
--   **Müşteri Destek Yönetimi (Yetki: `destek_yonet`)**
-    -   `GET /api/admin/destek-talepleri?durum=acik`: Talepleri duruma göre filtreleyerek listeler.
-    -   `POST /api/admin/destek-talepleri/{id}/mesaj`: Bir talebe yönetici olarak yanıt verir.
+### Depo Operasyonları API'si (YENİ)
+_Bu endpoint'ler `AuthMiddleware` ve ilgili yetkilerle korunmaktadır._
 
-### Cron Job Endpoint'i (YENİ - Özel Güvenlikli)
--   **`POST /api/cron/run`**: `AutomationService` içindeki tüm görevleri (terk edilmiş sepet, pasif kullanıcı vb.) tetikler.
-    -   **Güvenlik:** Bu endpoint, `Authorization: Bearer <CRON_SECRET_KEY>` başlığı ile gönderilen isteklere yanıt verir. Anahtar, `config/ayarlar.php` dosyasında tanımlanmalıdır.
+-   **`GET /api/depo/hazirlanacak-siparisler` (Yetki: `siparis_toplama_listesi_gor`)**
+    -   Depo görevlisinin hazırlaması gereken, durumu "Ödendi" veya "Hazırlanıyor" olan siparişleri listeler.
+-   **`GET /api/depo/siparis/{id}/toplama-listesi` (Yetki: `siparis_toplama_listesi_gor`)**
+    -   Bir siparişin, ürünlerin depo içindeki yerini (`raf_kodu`) de içeren ürün toplama listesini döndürür.
+-   **`POST /api/depo/siparis/{id}/kargoya-ver` (Yetki: `siparis_kargola`)**
+    -   Bir siparişi "Kargoya Verildi" olarak işaretler, kargo bilgilerini kaydeder ve müşteriye otomatik bildirim e-postası gönderir.
+    -   **Body:** `{ "kargo_firmasi": "...", "kargo_takip_kodu": "..." }`
+
+### Admin Korumalı Endpoint'ler (GÜNCELLENMİŞ)
+
+-   **`PUT /api/admin/siparisler/{id}` (Yetki Daraltıldı - `siparis_yonet`)**
+    -   Bu endpoint artık sadece bir siparişin nihai durumlarını (`Teslim Edildi`, `Iptal Edildi`) güncellemek için kullanılır. Kargo bilgileri girişi ve "Kargoya Verildi" olarak işaretleme işlemi Depo API'sine taşınmıştır.
+    -   **Body:** `{ "durum": "Teslim Edildi" }`
+
+_(Diğer tüm endpoint'ler v2.6 ile aynıdır.)_

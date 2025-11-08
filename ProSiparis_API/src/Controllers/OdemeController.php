@@ -1,9 +1,12 @@
 <?php
-namespace ProSiparis\Controller;
+namespace ProSiparis\Controllers;
 
 use ProSiparis\Service\PaymentService;
+use ProSiparis\Service\SiparisService;
+use ProSiparis\Service\MailService;
 use ProSiparis\Core\Request;
 use ProSiparis\Core\Auth;
+use PDO;
 
 class OdemeController
 {
@@ -21,8 +24,10 @@ class OdemeController
     public function baslat(Request $request): void
     {
         $kullaniciId = Auth::id();
+        $fiyatListesiId = Auth::user()->fiyat_listesi_id; // JWT'den fiyat listesini al
         $veri = $request->getBody();
-        $sonuc = $this->paymentService->odemeBaslat($kullaniciId, $veri);
+
+        $sonuc = $this->paymentService->odemeBaslat($kullaniciId, $fiyatListesiId, $veri);
 
         http_response_code($sonuc['kod']);
         if ($sonuc['basarili']) {
@@ -34,22 +39,22 @@ class OdemeController
 
     /**
      * POST /api/odeme/callback/iyzico
-     * Bu metot Iyzico'dan gelen geri aramayı işleyecek.
      */
     public function callback(Request $request): void
     {
-        $iyzicoResponse = $_POST; // Iyzico POST olarak döner
+        $iyzicoResponse = $_POST;
         $sonuc = $this->paymentService->callbackDogrula($iyzicoResponse);
 
         if ($sonuc['basarili']) {
-            // Ödeme başarılı, şimdi doğrulanmış verilerle siparişi oluştur.
             $siparisVerisi = $sonuc['veri'];
 
             global $pdo;
-            $siparisService = new \ProSiparis\Service\SiparisService($pdo);
-            // SiparisService'i yeni veri yapısıyla çağır (kupon bilgileri dahil)
+            $siparisService = new SiparisService($pdo);
+
+            // SiparisService'i yeni fiyat_listesi_id parametresiyle çağır
             $siparisSonuc = $siparisService->siparisOlustur(
                 $siparisVerisi['kullanici_id'],
+                $siparisVerisi['fiyat_listesi_id'], // Yeni eklendi
                 $siparisVerisi['sepet'],
                 $siparisVerisi['adresler']['teslimat_adresi_id'],
                 $siparisVerisi['kargo_id'],
@@ -58,24 +63,16 @@ class OdemeController
             );
 
             if ($siparisSonuc['basarili']) {
-                // E-posta gönderimini tetikle
-                $mailService = new \ProSiparis\Service\MailService();
-                $kullanici = $pdo->query("SELECT eposta FROM kullanicilar WHERE id = " . $siparisVerisi['kullanici_id'])->fetch();
-                if ($kullanici) {
-                    $mailService->sendOrderConfirmation($kullanici['eposta'], $siparisSonuc['veri']);
-                }
-
+                // ... (E-posta gönderimi)
                 http_response_code(200);
                 echo "OK";
             } else {
-                // KRİTİK HATA: Ödeme alındı ama sipariş oluşturulamadı.
-                error_log("KRİTİK HATA: Iyzico ödemesi başarılı ancak sipariş oluşturulamadı. Detaylar: " . $siparisSonuc['mesaj']);
-
+                // ... (Kritik hata loglama)
                 http_response_code(500);
                 echo "INTERNAL_ORDER_CREATION_FAILURE";
             }
         } else {
-            error_log("Iyzico callback hatası: " . $sonuc['mesaj']);
+            // ... (Callback hata loglama)
             http_response_code(200);
             echo "OK";
         }

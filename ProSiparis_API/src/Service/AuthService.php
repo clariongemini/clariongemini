@@ -43,7 +43,7 @@ class AuthService
             ]);
             return ['basarili' => true, 'kod' => 201, 'mesaj' => 'Kayıt başarıyla oluşturuldu.'];
         } catch (\PDOException $e) {
-            if ($e->getCode() == 23000) { // Unique constraint ihlali
+            if ($e->getCode() == 23000) {
                 return ['basarili' => false, 'kod' => 409, 'mesaj' => 'Bu e-posta adresi zaten kayıtlı.'];
             }
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Veritabanı hatası: ' . $e->getMessage()];
@@ -51,9 +51,9 @@ class AuthService
     }
 
     /**
-     * Kullanıcı girişi yapar ve JWT döndürür. JWT, kullanıcının yetkilerini içerir.
+     * Kullanıcı girişi yapar ve JWT döndürür. JWT, kullanıcının yetkilerini ve fiyat listesi ID'sini içerir.
      * @param array $data ['eposta', 'parola']
-     * @return array Başarı veya hata durumu, başarılı ise token ve tercihler
+     * @return array Başarı veya hata durumu, başarılı ise token
      */
     public function girisYap(array $data): array
     {
@@ -63,14 +63,14 @@ class AuthService
 
         $sql = "
             SELECT
-                k.id, k.ad_soyad, k.parola, k.tercih_dil, k.tercih_tema, r.rol_adi,
+                k.id, k.ad_soyad, k.parola, r.rol_adi, r.fiyat_listesi_id,
                 GROUP_CONCAT(y.yetki_kodu) as yetkiler
             FROM kullanicilar k
             JOIN roller r ON k.rol_id = r.rol_id
             LEFT JOIN rol_yetki_iliskisi ryi ON r.rol_id = ryi.rol_id
             LEFT JOIN yetkiler y ON ryi.yetki_id = y.yetki_id
             WHERE k.eposta = :eposta
-            GROUP BY k.id, r.rol_adi
+            GROUP BY k.id, r.rol_adi, r.fiyat_listesi_id
         ";
 
         $stmt = $this->pdo->prepare($sql);
@@ -81,8 +81,9 @@ class AuthService
             $simdiki_zaman = time();
             $gecerlilik_sonu = $simdiki_zaman + JWT_EXPIRATION_TIME;
 
-            // GROUP_CONCAT sonucu null ise boş dizi, değilse virgülle ayrılmış string'i diziye çevir.
             $yetkilerListesi = $kullanici['yetkiler'] ? explode(',', $kullanici['yetkiler']) : [];
+            // Fiyat listesi ID'si null ise, varsayılan perakende listesi (1) kullanılır.
+            $fiyatListesiId = $kullanici['fiyat_listesi_id'] ?? 1;
 
             $payload = [
                 'iss' => JWT_ISSUER,
@@ -90,9 +91,10 @@ class AuthService
                 'iat' => $simdiki_zaman,
                 'exp' => $gecerlilik_sonu,
                 'data' => [
-                    'kullanici_id' => $kullanici['id'],
-                    'rol' => $kullanici['rol_adi'], // Bilgi amaçlı, yetkilendirme için kullanılmayacak.
-                    'yetkiler' => $yetkilerListesi // Yetkilendirme bu dizi üzerinden yapılacak.
+                    'kullanici_id' => (int)$kullanici['id'],
+                    'rol' => $kullanici['rol_adi'],
+                    'yetkiler' => $yetkilerListesi,
+                    'fiyat_listesi_id' => (int)$fiyatListesiId
                 ]
             ];
 
@@ -102,11 +104,7 @@ class AuthService
                 'basarili' => true,
                 'kod' => 200,
                 'veri' => [
-                    'token' => $jwt,
-                    'kullanici_tercihleri' => [
-                        'dil' => $kullanici['tercih_dil'],
-                        'tema' => $kullanici['tercih_tema']
-                    ]
+                    'token' => $jwt
                 ]
             ];
         }

@@ -1,73 +1,44 @@
 <?php
-namespace ProSiparis\Controller;
+namespace ProSiparis\Controllers;
 
 use ProSiparis\Service\SiparisService;
 use ProSiparis\Core\Request;
 use ProSiparis\Core\Auth;
+use PDO;
 
 class SiparisController
 {
     private SiparisService $siparisService;
-    private \PDO $pdo;
 
     public function __construct()
     {
         global $pdo;
-        $this->pdo = $pdo;
-        $this->siparisService = new SiparisService($this->pdo);
+        $this->siparisService = new SiparisService($pdo);
     }
 
     /**
-     * GET /api/siparisler endpoint'ini yönetir.
-     * @param Request $request
+     * GET /api/siparisler (kullanıcı için)
      */
     public function gecmis(Request $request): void
     {
-        // AuthMiddleware bu endpoint'ten önce çalıştığı için Auth::id() güvenilirdir.
         $kullaniciId = Auth::id();
         $sonuc = $this->siparisService->kullaniciSiparisleriniGetir($kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 
     /**
-     * POST /api/siparisler endpoint'ini yönetir.
-     * @param Request $request
+     * GET /api/siparisler/{id} (kullanıcı için)
      */
-    public function olustur(Request $request): void
+    public function detay(Request $request, $params): void
     {
+        $id = $params['id'];
         $kullaniciId = Auth::id();
-        $veri = $request->getBody();
-        $sonuc = $this->siparisService->siparisOlustur($kullaniciId, $veri);
+        $sonuc = $this->siparisService->idIleGetir($id, $kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 
     /**
-     * Servis katmanından gelen sonuca göre standart bir JSON yanıtı gönderir.
-     * @param array $sonuc
-     */
-    private function jsonYanitGonder(array $sonuc): void
-    {
-        http_response_code($sonuc['kod']);
-        if ($sonuc['basarili']) {
-             $response = ['durum' => 'basarili'];
-             if (isset($sonuc['veri'])) {
-                $response['veri'] = $sonuc['veri'];
-             }
-             if (isset($sonuc['mesaj'])) {
-                $response['mesaj'] = $sonuc['mesaj'];
-             }
-             echo json_encode($response);
-        } else {
-            echo json_encode([
-                'durum' => 'hata',
-                'mesaj' => $sonuc['mesaj']
-            ]);
-        }
-    }
-
-    /**
-     * GET /api/admin/siparisler endpoint'ini yönetir.
-     * @param Request $request
+     * GET /api/admin/siparisler
      */
     public function tumunuListele(Request $request): void
     {
@@ -76,24 +47,34 @@ class SiparisController
     }
 
     /**
-     * PUT /api/admin/siparisler/{id} endpoint'ini yönetir.
-     * @param Request $request
-     * @param int $id
+     * PUT /api/admin/siparisler/{id}
+     * Admin'in nihai durumları güncellemesini sağlar.
      */
-    public function durumGuncelle(Request $request, int $id): void
+    public function durumGuncelle(Request $request, $params): void
     {
+        $id = $params['id'];
         $veri = $request->getBody();
-        $sonuc = $this->siparisService->siparisDurumGuncelle($id, $veri);
+        $yeniDurum = $veri['durum'] ?? '';
+
+        if (empty($yeniDurum)) {
+             $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Yeni durum belirtilmelidir.']);
+             return;
+        }
+
+        $sonuc = $this->siparisService->adminSiparisDurumGuncelle($id, $yeniDurum);
         $this->jsonYanitGonder($sonuc);
     }
 
-    /**
-     * GET /api/siparisler/{id}
-     */
-    public function detay(Request $request, int $id): void
+    private function jsonYanitGonder(array $sonuc): void
     {
-        $kullaniciId = Auth::id();
-        $sonuc = $this->siparisService->idIleGetir($id, $kullaniciId);
-        $this->jsonYanitGonder($sonuc);
+        http_response_code($sonuc['kod']);
+        if ($sonuc['basarili']) {
+             $response = ['durum' => 'basarili'];
+             if (isset($sonuc['veri'])) $response['veri'] = $sonuc['veri'];
+             if (isset($sonuc['mesaj'])) $response['mesaj'] = $sonuc['mesaj'];
+             echo json_encode($response);
+        } else {
+            echo json_encode(['durum' => 'hata', 'mesaj' => $sonuc['mesaj']]);
+        }
     }
 }

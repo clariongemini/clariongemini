@@ -2,6 +2,7 @@
 namespace ProSiparis\Service;
 
 use PDO;
+use Exception;
 
 class SiparisService
 {
@@ -19,7 +20,7 @@ class SiparisService
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([$kullaniciId]);
             return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş geçmişi getirilirken bir hata oluştu.'];
         }
     }
@@ -46,7 +47,7 @@ class SiparisService
             $siparis['urunler'] = $stmt_detay->fetchAll(PDO::FETCH_ASSOC);
 
             return ['basarili' => true, 'kod' => 200, 'veri' => $siparis];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş detayı getirilirken bir hata oluştu.'];
         }
     }
@@ -60,104 +61,85 @@ class SiparisService
                     ORDER BY s.siparis_tarihi DESC";
             $stmt = $this->pdo->query($sql);
             return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Tüm siparişler getirilirken bir hata oluştu.'];
         }
     }
 
-    public function siparisOlustur(int $kullaniciId, array $sepet, int $teslimatAdresiId, int $kargoId, ?string $kuponKodu, float $indirimTutari): array
+    public function siparisOlustur(int $kullaniciId, int $fiyatListesiId, array $sepet, int $teslimatAdresiId, int $kargoId, ?string $kuponKodu, float $indirimTutari): array
     {
         if (empty($sepet)) {
             return ['basarili' => false, 'kod' => 400, 'mesaj' => 'Sepet boş olamaz.'];
         }
 
+        $this->pdo->beginTransaction();
         try {
-            $this->pdo->beginTransaction();
-
             $sepetTutar = 0;
+            $dogrulanmisUrunler = [];
+
             foreach ($sepet as $item) {
-                $stmt = $this->pdo->prepare("SELECT fiyat, stok_adedi FROM urun_varyantlari WHERE varyant_id = ? FOR UPDATE");
-                $stmt->execute([$item['varyant_id']]);
+                $sql = "
+                    SELECT vf.fiyat, uv.stok_adedi
+                    FROM urun_varyantlari uv
+                    JOIN varyant_fiyatlari vf ON uv.varyant_id = vf.varyant_id
+                    WHERE uv.varyant_id = ? AND vf.fiyat_listesi_id = ? FOR UPDATE
+                ";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([$item['varyant_id'], $fiyatListesiId]);
                 $varyant = $stmt->fetch();
-                if (!$varyant || $varyant['stok_adedi'] < $item['adet']) {
-                    throw new \Exception("Stokta yeterli ürün yok.");
-                }
-                $sepetTutar += $varyant['fiyat'] * $item['adet'];
+
+                if (!$varyant) { throw new Exception("Ürün (ID: {$item['varyant_id']}) için geçerli bir fiyat bulunamadı."); }
+                if ($varyant['stok_adedi'] < $item['adet']) { throw new Exception("Stokta yeterli ürün yok (ID: {$item['varyant_id']})."); }
+
+                $birimFiyat = (float)$varyant['fiyat'];
+                $sepetTutar += $birimFiyat * $item['adet'];
+                $dogrulanmisUrunler[] = ['varyant_id' => $item['varyant_id'], 'adet' => $item['adet'], 'birim_fiyat' => $birimFiyat];
             }
 
-            $kargoUcreti = $this->pdo->query("SELECT ucret FROM kargo_secenekleri WHERE kargo_id = $kargoId")->fetchColumn();
+            $kargoUcreti = $this->pdo->query("SELECT ucret FROM kargo_secenekleri WHERE kargo_id = $kargoId")->fetchColumn() ?: 0;
             $toplamTutar = ($sepetTutar + $kargoUcreti) - $indirimTutari;
 
-            $sql = "INSERT INTO siparisler (kullanici_id, teslimat_adresi_id, kargo_id, toplam_tutar, indirim_tutari, kullanilan_kupon_kodu, durum) VALUES (?, ?, ?, ?, ?, ?, 'Hazirlaniyor')";
+            $sql = "INSERT INTO siparisler (kullanici_id, teslimat_adresi_id, kargo_id, toplam_tutar, durum) VALUES (?, ?, ?, ?, 'Odendi')";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$kullaniciId, $teslimatAdresiId, $kargoId, $toplamTutar, $indirimTutari, $kuponKodu]);
+            $stmt->execute([$kullaniciId, $teslimatAdresiId, $kargoId, $toplamTutar]);
             $siparisId = $this->pdo->lastInsertId();
 
-            foreach ($sepet as $item) {
-                $stmt = $this->pdo->prepare("SELECT fiyat FROM urun_varyantlari WHERE varyant_id = ?");
-                $stmt->execute([$item['varyant_id']]);
-                $birimFiyat = $stmt->fetchColumn();
+            foreach ($dogrulanmisUrunler as $urun) {
+                $sqlDetay = "INSERT INTO siparis_detaylari (siparis_id, varyant_id, adet, birim_fiyat) VALUES (?, ?, ?, ?)";
+                $stmtDetay = $this->pdo->prepare($sqlDetay);
+                $stmtDetay->execute([$siparisId, $urun['varyant_id'], $urun['adet'], $urun['birim_fiyat']]);
 
-                $sql = "INSERT INTO siparis_detaylari (siparis_id, varyant_id, adet, birim_fiyat) VALUES (?, ?, ?, ?)";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->execute([$siparisId, $item['varyant_id'], $item['adet'], $birimFiyat]);
-
-                $sql = "UPDATE urun_varyantlari SET stok_adedi = stok_adedi - ? WHERE varyant_id = ?";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->execute([$item['adet'], $item['varyant_id']]);
-            }
-
-            if ($kuponKodu) {
-                (new CouponService($this->pdo))->kuponKullaniminiArtir($kuponKodu);
+                $sqlStok = "UPDATE urun_varyantlari SET stok_adedi = stok_adedi - ? WHERE varyant_id = ?";
+                $stmtStok = $this->pdo->prepare($sqlStok);
+                $stmtStok->execute([$urun['adet'], $urun['varyant_id']]);
             }
 
             $this->pdo->commit();
 
-            $yeniSiparis = $this->idIleGetir($siparisId, $kullaniciId);
-            return ['basarili' => true, 'kod' => 201, 'veri' => $yeniSiparis['veri']];
+            return ['basarili' => true, 'kod' => 201, 'veri' => ['siparis_id' => $siparisId]];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->pdo->rollBack();
             return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş oluşturulurken bir hata oluştu: ' . $e->getMessage()];
         }
     }
 
-    public function siparisDurumGuncelle(int $siparisId, array $veri): array
+    public function adminSiparisDurumGuncelle(int $siparisId, string $yeniDurum): array
     {
-        if (empty($veri)) {
-            return ['basarili' => false, 'kod' => 400, 'mesaj' => 'Güncellenecek veri bulunamadı.'];
+        $izinVerilenDurumlar = ['Teslim Edildi', 'Iptal Edildi'];
+        if (!in_array($yeniDurum, $izinVerilenDurumlar)) {
+            return ['basarili' => false, 'kod' => 403, 'mesaj' => "Bu durumu güncelleme yetkiniz yok."];
         }
-
         try {
-            $alanlar = [];
-            $parametreler = [];
-
-            if (isset($veri['durum'])) { $alanlar[] = "durum = ?"; $parametreler[] = $veri['durum']; }
-            if (isset($veri['kargo_firmasi'])) { $alanlar[] = "kargo_firmasi = ?"; $parametreler[] = $veri['kargo_firmasi']; }
-            if (isset($veri['kargo_takip_kodu'])) { $alanlar[] = "kargo_takip_kodu = ?"; $parametreler[] = $veri['kargo_takip_kodu']; }
-
-            if (empty($alanlar)) return ['basarili' => false, 'kod' => 400, 'mesaj' => 'Güncellenecek alan belirtilmedi.'];
-
-            $sql = "UPDATE siparisler SET " . implode(', ', $alanlar) . " WHERE id = ?";
-            $parametreler[] = $siparisId;
-
+            $sql = "UPDATE siparisler SET durum = ? WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($parametreler);
-
+            $stmt->execute([$yeniDurum, $siparisId]);
             if ($stmt->rowCount() > 0) {
-                $guncellenenSiparis = $this->pdo->query("SELECT * FROM siparisler WHERE id = $siparisId")->fetch();
-                $kullanici = $this->pdo->query("SELECT id, eposta FROM kullanicilar WHERE id = " . $guncellenenSiparis['kullanici_id'])->fetch();
-
-                if ($veri['durum'] === 'Kargoya Verildi' && !empty($guncellenenSiparis['kargo_takip_kodu'])) {
-                    (new MailService())->sendShippingConfirmation($kullanici['eposta'], $guncellenenSiparis);
-                }
-
-                return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Sipariş başarıyla güncellendi.'];
+                return ['basarili' => true, 'kod' => 200, 'mesaj' => "Sipariş durumu '{$yeniDurum}' olarak güncellendi."];
             }
-            return ['basarili' => false, 'kod' => 404, 'mesaj' => 'Güncellenecek sipariş bulunamadı.'];
-
-        } catch (\Exception $e) {
-            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş güncellenirken bir hata oluştu: ' . $e->getMessage()];
+            return ['basarili' => false, 'kod' => 404, 'mesaj' => 'Sipariş bulunamadı veya durum zaten aynı.'];
+        } catch (Exception $e) {
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Sipariş durumu güncellenirken bir hata oluştu: ' . $e->getMessage()];
         }
     }
 }
