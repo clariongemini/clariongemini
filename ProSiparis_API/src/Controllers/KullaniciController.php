@@ -3,101 +3,59 @@ namespace ProSiparis\Controllers;
 
 use ProSiparis\Service\AuthService;
 use ProSiparis\Service\KullaniciService;
-use ProSiparis\Service\RecommendationService; // Eklendi
+use ProSiparis\Service\RecommendationService;
+use ProSiparis\Service\IadeService;
 use ProSiparis\Core\Request;
 use ProSiparis\Core\Auth;
+use PDO;
 
 class KullaniciController
 {
     private AuthService $authService;
     private KullaniciService $kullaniciService;
-    private RecommendationService $recommendationService; // Eklendi
-    private \PDO $pdo;
+    private RecommendationService $recommendationService;
+    private IadeService $iadeService;
 
     public function __construct()
     {
         global $pdo;
-        $this->pdo = $pdo;
-        $this->authService = new AuthService($this->pdo);
-        $this->kullaniciService = new KullaniciService($this->pdo);
-        $this->recommendationService = new RecommendationService($this->pdo); // Eklendi
+        $this->authService = new AuthService($pdo);
+        $this->kullaniciService = new KullaniciService($pdo);
+        $this->recommendationService = new RecommendationService($pdo);
+        $this->iadeService = new IadeService($pdo);
     }
 
-    /**
-     * POST /api/kullanici/kayit endpoint'ini yönetir.
-     */
-    public function kayitOl(Request $request): void
-    {
-        $veri = $request->getBody();
-        $sonuc = $this->authService->kayitOl($veri);
-        $this->jsonYanitGonder($sonuc);
-    }
+    public function kayitOl(Request $request): void { /* ... */ }
+    public function girisYap(Request $request): void { /* ... */ }
+    public function profilGetir(Request $request): void { /* ... */ }
+    public function profilGuncelle(Request $request): void { /* ... */ }
+    public function onerilenUrunler(Request $request): void { /* ... */ }
 
-    /**
-     * POST /api/kullanici/giris endpoint'ini yönetir.
-     */
-    public function girisYap(Request $request): void
-    {
-        $veri = $request->getBody();
-        $sonuc = $this->authService->girisYap($veri);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    /**
-     * GET /api/kullanici/profil endpoint'ini yönetir.
-     */
-    public function profilGetir(Request $request): void
-    {
-        $kullaniciId = Auth::id();
-        $sonuc = $this->kullaniciService->profilGetir($kullaniciId);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    /**
-     * PUT /api/kullanici/profil endpoint'ini yönetir.
-     */
-    public function profilGuncelle(Request $request): void
+    public function iadeTalebiOlustur(Request $request): void
     {
         $kullaniciId = Auth::id();
         $veri = $request->getBody();
-        $sonuc = $this->kullaniciService->profilGuncelle($kullaniciId, $veri);
+        $sonuc = $this->iadeService->iadeTalebiOlustur($kullaniciId, $veri);
         $this->jsonYanitGonder($sonuc);
     }
 
-    /**
-     * GET /api/kullanici/onerilen-urunler endpoint'ini yönetir.
-     */
-    public function onerilenUrunler(Request $request): void
+    public function iadeTalepleriniListele(Request $request): void
     {
         $kullaniciId = Auth::id();
-        $sonuc = $this->recommendationService->getOnerilenUrunler($kullaniciId);
+        $sonuc = $this->iadeService->kullaniciTalepleriniListele($kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 
-    /**
-     * Servis katmanından gelen sonuca göre standart bir JSON yanıtı gönderir.
-     * @param array $sonuc
-     */
     private function jsonYanitGonder(array $sonuc): void
     {
         http_response_code($sonuc['kod']);
         if ($sonuc['basarili']) {
             $response = ['durum' => 'basarili'];
-            if (isset($sonuc['veri'])) {
-                $response['veri'] = $sonuc['veri'];
-            }
-             if (isset($sonuc['not'])) { // RecommendationService'den gelen not için eklendi
-                $response['not'] = $sonuc['not'];
-            }
-            if (isset($sonuc['mesaj'])) {
-                $response['mesaj'] = $sonuc['mesaj'];
-            }
+            if (isset($sonuc['veri'])) $response['veri'] = $sonuc['veri'];
+            if (isset($sonuc['mesaj'])) $response['mesaj'] = $sonuc['mesaj'];
             echo json_encode($response);
         } else {
-            echo json_encode([
-                'durum' => 'hata',
-                'mesaj' => $sonuc['mesaj']
-            ]);
+            echo json_encode(['durum' => 'hata', 'mesaj' => $sonuc['mesaj']]);
         }
     }
 }

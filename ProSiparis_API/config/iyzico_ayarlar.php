@@ -1,24 +1,22 @@
 <?php
 // config/iyzico_ayarlar.php
-// Iyzico API Anahtarları ve Ayarları
 
-class IyzicoOptions {
-    public static function getTestOptions() {
-        $options = new \Iyzipay\Options();
-        $options->setApiKey('sandbox-your-api-key');
-        $options->setSecretKey('sandbox-your-secret-key');
-        $options->setBaseUrl('https://sandbox-api.iyzipay.com');
-        return $options;
-    }
+use Iyzipay\Options;
 
-    public static function getProdOptions() {
-        $options = new \Iyzipay\Options();
-        $options->setApiKey('your-production-api-key');
-        $options->setSecretKey('your-production-secret-key');
-        $options->setBaseUrl('https://api.iyzipay.com');
-        return $options;
-    }
+// Ortam değişkenlerinden Iyzico ayarlarını yükle
+$apiKey = getenv('IYZICO_API_KEY');
+$secretKey = getenv('IYZICO_SECRET_KEY');
+$baseUrl = getenv('IYZICO_BASE_URL');
+
+if (!$apiKey || !$secretKey || !$baseUrl) {
+    // Gerekli ortam değişkenleri tanımlanmamışsa hata ver.
+    // Bu, uygulamanın yanlış yapılandırma ile çalışmasını engeller.
+    throw new \RuntimeException("Iyzico API anahtarları veya temel URL'si için ortam değişkenleri ayarlanmamış.");
 }
 
-// Ortama göre ayarları seçin (örneğin, başka bir config dosyasından okunabilir)
-define('IYZICO_OPTIONS', IyzicoOptions::getTestOptions());
+$options = new Options();
+$options->setApiKey($apiKey);
+$options->setSecretKey($secretKey);
+$options->setBaseUrl($baseUrl);
+
+define('IYZICO_OPTIONS', $options);

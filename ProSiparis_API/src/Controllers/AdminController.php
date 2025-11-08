@@ -1,42 +1,41 @@
 <?php
 namespace ProSiparis\Controllers;
 
-use ProSiparis\Service\DepoService;
 use ProSiparis\Service\IadeService;
 use ProSiparis\Core\Request;
 use PDO;
 
-class DepoController
+class AdminController
 {
-    private DepoService $depoService;
     private IadeService $iadeService;
 
     public function __construct()
     {
         global $pdo;
-        $this->depoService = new DepoService($pdo);
+        if (!$pdo instanceof PDO) {
+            throw new \RuntimeException("Veritabanı bağlantısı kurulamadı.");
+        }
         $this->iadeService = new IadeService($pdo);
     }
 
-    public function beklenenTeslimatlar(Request $request)
+    public function listeleIadeTalepleri(Request $request)
     {
-        $sonuc = $this->depoService->beklenenTeslimatlariListele();
+        $sonuc = $this->iadeService->listeleTalepler($request->getQueryParams());
         $this->jsonYanitGonder($sonuc);
     }
 
-    public function teslimatAl(Request $request, $params)
+    public function iadeDurumGuncelle(Request $request, $params)
     {
-        $poId = $params['po_id'];
-        $urunler = $request->getBody()['urunler'] ?? [];
-        $sonuc = $this->depoService->teslimatAl($poId, $urunler);
+        $iadeId = $params['id'];
+        $yeniDurum = $request->getBody()['durum'] ?? '';
+        $sonuc = $this->iadeService->iadeDurumGuncelle($iadeId, $yeniDurum);
         $this->jsonYanitGonder($sonuc);
     }
 
-    public function iadeTeslimAl(Request $request, $params)
+    public function iadeOdemeYap(Request $request, $params)
     {
-        $iadeId = $params['iade_id'];
-        $urunler = $request->getBody()['urunler'] ?? [];
-        $sonuc = $this->iadeService->iadeTeslimAl($iadeId, $urunler);
+        $iadeId = $params['id'];
+        $sonuc = $this->iadeService->iadeOdemeYap($iadeId);
         $this->jsonYanitGonder($sonuc);
     }
 

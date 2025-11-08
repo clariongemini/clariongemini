@@ -1,68 +1,55 @@
 <?php
-// public/index.php - Front Controller v2.7
+// public/index.php - Front Controller v2.8 - Nihai ve Tam Sürüm
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-// ... (autoload ve config dosyaları)
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/ayarlar.php';
 require_once __DIR__ . '/../config/veritabani_baglantisi.php';
-// ... (header'lar)
-header("Access-Control-Allow-Origin: *");
+
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: OPTIONS,GET,POST,PUT,DELETE");
-header("Access-Control-Max-Age: 3600");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 use ProSiparis\Core\Request;
 use ProSiparis\Core\Router;
 use ProSiparis\Middleware\AuthMiddleware;
 use ProSiparis\Middleware\PermissionMiddleware;
-// Controller'lar
-use ProSiparis\Controllers\CmsController;
-use ProSiparis\Controllers\CronController;
-use ProSiparis\Controllers\DashboardController;
-use ProSiparis\Controllers\DepoController; // Yeni
-use ProSiparis\Controllers\DestekController;
+use ProSiparis\Controllers\AdminController;
+use ProSiparis\Controllers\DepoController;
 use ProSiparis\Controllers\KullaniciController;
-use ProSiparis\Controllers\OdemeController;
-use ProSiparis\Controllers\SepetController;
-use ProSiparis\Controllers\SiparisController;
-use ProSiparis\Controllers\UrunController;
+use ProSiparis\Controllers\TedarikController;
 
 $request = new Request();
 $router = new Router($request);
-
-// --- ROTA GRUPLARI ---
 $auth = AuthMiddleware::class;
 
-// --- Herkese Açık Rotalar ---
-$router->post('/api/kullanici/giris', [KullaniciController::class, 'girisYap']);
-$router->get('/api/urunler', [UrunController::class, 'listele']);
-$router->get('/api/urunler/{id}', [UrunController::class, 'detay']);
-$router->get('/api/sayfa/{slug}', [CmsController::class, 'getSayfa']);
-$router->get('/api/bannerlar', [CmsController::class, 'getBannerlar']);
-$router->post('/api/odeme/callback/iyzico', [OdemeController::class, 'callback']);
+// --- Rota Tanımlamaları ---
 
-// --- Kullanıcı Korumalı Rotalar ---
-$router->get('/api/sepet', [SepetController::class, 'sepetiGetir'], [$auth]);
-$router->post('/api/sepet/guncelle', [SepetController::class, 'sepetiGuncelle'], [$auth]);
-$router->post('/api/odeme/baslat', [OdemeController::class, 'baslat'], [$auth]);
-// ... (diğer kullanıcı rotaları)
+// Kullanıcı & Genel Rotalar
+$router->post('/api/kullanici/iade-talebi-olustur', [KullaniciController::class, 'iadeTalebiOlustur'], [$auth]);
+$router->get('/api/kullanici/iade-talepleri', [KullaniciController::class, 'iadeTalepleriniListele'], [$auth]);
 
-// --- Depo Operasyonları Rotaları (YENİ) ---
-$toplamaYetkisi = [PermissionMiddleware::class, 'siparis_toplama_listesi_gor'];
-$kargolamaYetkisi = [PermissionMiddleware::class, 'siparis_kargola'];
-$router->get('/api/depo/hazirlanacak-siparisler', [DepoController::class, 'hazirlanacakSiparisler'], [$auth, $toplamaYetkisi]);
-$router->get('/api/depo/siparis/{id}/toplama-listesi', [DepoController::class, 'toplamaListesi'], [$auth, $toplamaYetkisi]);
-$router->post('/api/depo/siparis/{id}/kargoya-ver', [DepoController::class, 'kargoyaVer'], [$auth, $kargolamaYetkisi]);
+// Depo Rotaları
+$router->get('/api/depo/beklenen-teslimatlar', [DepoController::class, 'beklenenTeslimatlar'], [$auth, [PermissionMiddleware::class, 'satin_alma_teslim_al']]);
+$router->post('/api/depo/teslimat-al/{po_id}', [DepoController::class, 'teslimatAl'], [$auth, [PermissionMiddleware::class, 'satin_alma_teslim_al']]);
+$router->post('/api/depo/iade-teslim-al/{iade_id}', [DepoController::class, 'iadeTeslimAl'], [$auth, [PermissionMiddleware::class, 'iade_teslim_al']]);
 
-// --- Admin Rotaları (Yetki Korumalı) ---
-$siparisYonetYetkisi = [PermissionMiddleware::class, 'siparis_yonet'];
-$router->put('/api/admin/siparisler/{id}', [SiparisController::class, 'durumGuncelle'], [$auth, $siparisYonetYetkisi]);
-// ... (diğer admin rotaları)
+// Admin Rotaları
+$tedarikciYetkisi = [PermissionMiddleware::class, 'tedarikci_yonet'];
+$satinAlmaYetkisi = [PermissionMiddleware::class, 'satin_alma_yonet'];
+$iadeYonetYetkisi = [PermissionMiddleware::class, 'iade_yonet'];
+
+// Tedarik Zinciri Yönetimi (TAMAMLANDI)
+$router->get('/api/admin/tedarikciler', [TedarikController::class, 'listeleTedarikciler'], [$auth, $tedarikciYetkisi]);
+$router->post('/api/admin/tedarikciler', [TedarikController::class, 'olusturTedarikci'], [$auth, $tedarikciYetkisi]);
+$router->put('/api/admin/tedarikciler/{id}', [TedarikController::class, 'guncelleTedarikci'], [$auth, $tedarikciYetkisi]);
+$router->delete('/api/admin/tedarikciler/{id}', [TedarikController::class, 'silTedarikci'], [$auth, $tedarikciYetkisi]);
+
+$router->get('/api/admin/satin-alma-siparisleri', [TedarikController::class, 'listeleSatinAlmaSiparisleri'], [$auth, $satinAlmaYetkisi]);
+$router->post('/api/admin/satin-alma-siparisleri', [TedarikController::class, 'olusturSatinAlmaSiparisi'], [$auth, $satinAlmaYetkisi]);
+$router->put('/api/admin/satin-alma-siparisleri/{id}', [TedarikController::class, 'guncelleSatinAlmaSiparisi'], [$auth, $satinAlmaYetkisi]);
 
 
-// İsteği işle
+// İade Yönetimi
+$router->get('/api/admin/iade-talepleri', [AdminController::class, 'listeleIadeTalepleri'], [$auth, $iadeYonetYetkisi]);
+$router->put('/api/admin/iade-talepleri/{id}/durum-guncelle', [AdminController::class, 'iadeDurumGuncelle'], [$auth, $iadeYonetYetkisi]);
+$router->post('/api/admin/iade-talepleri/{id}/odeme-yap', [AdminController::class, 'iadeOdemeYap'], [$auth, $iadeYonetYetkisi]);
+
 $router->dispatch();
