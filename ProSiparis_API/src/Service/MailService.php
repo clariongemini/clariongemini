@@ -12,7 +12,6 @@ class MailService
 
     public function __construct()
     {
-        // Hassas bilgileri artık config/ayarlar.php dosyasından güvenli bir şekilde oku
         $dsn = sprintf(
             "smtp://%s:%s@%s:%d",
             urlencode(SMTP_USER),
@@ -27,32 +26,19 @@ class MailService
 
     /**
      * Sipariş onay e-postası gönderir.
-     * @param string $kullaniciEposta
-     * @param array $siparisDetaylari
      */
     public function sendOrderConfirmation(string $kullaniciEposta, array $siparisDetaylari): void
     {
         $htmlContent = "<h1>Siparişiniz Alındı!</h1><p>Sipariş Numaranız: {$siparisDetaylari['id']}</p>";
-        // Geliştirme Notu: Burada sipariş detaylarını daha zengin bir HTML şablonuna basmak gerekir.
-
-        $email = (new Email())
-            ->from(new Address(SMTP_FROM_ADDRESS, SMTP_FROM_NAME))
-            ->to($kullaniciEposta)
-            ->subject('ProSiparis - Siparişiniz Başarıyla Alındı')
-            ->html($htmlContent);
-
-        try {
-            $this->mailer->send($email);
-        } catch (\Exception $e) {
-            // E-posta gönderimi başarısız olursa, bunu logla ama süreci durdurma.
-            error_log("E-posta gönderim hatası: " . $e->getMessage());
-        }
+        $this->sendEmail(
+            $kullaniciEposta,
+            'ProSiparis - Siparişiniz Başarıyla Alındı',
+            $htmlContent
+        );
     }
 
     /**
      * Kargoya verildi bildirim e-postası gönderir.
-     * @param string $kullaniciEposta
-     * @param array $siparisDetaylari
      */
     public function sendShippingConfirmation(string $kullaniciEposta, array $siparisDetaylari): void
     {
@@ -60,17 +46,59 @@ class MailService
                         <p>Sipariş Numaranız: {$siparisDetaylari['id']}</p>
                         <p>Kargo Firması: {$siparisDetaylari['kargo_firmasi']}</p>
                         <p>Takip Kodu: {$siparisDetaylari['kargo_takip_kodu']}</p>";
+        $this->sendEmail(
+            $kullaniciEposta,
+            'ProSiparis - Siparişiniz Kargoya Verildi',
+            $htmlContent
+        );
+    }
 
-        $email = (new Email())
-            ->from(new Address(SMTP_FROM_ADDRESS, SMTP_FROM_NAME))
-            ->to($kullaniciEposta)
-            ->subject('ProSiparis - Siparişiniz Kargoya Verildi')
-            ->html($htmlContent);
+    /**
+     * Terk edilmiş sepet hatırlatma e-postası gönderir.
+     */
+    public function sendTerkEdilmisSepetEmail(string $kullaniciEposta, string $kullaniciAdi): void
+    {
+        $htmlContent = "<h1>Merhaba {$kullaniciAdi},</h1>
+                        <p>Sepetinizde harika ürünler unuttunuz! Alışverişinize devam etmek için uygulamamızı ziyaret edin.</p>";
+        $this->sendEmail(
+            $kullaniciEposta,
+            '🛒 Sepetinizdeki Ürünler Sizi Bekliyor!',
+            $htmlContent
+        );
+    }
 
+    /**
+     * Pasif kullanıcılar için "Seni Özledik" kupon e-postası gönderir.
+     */
+    public function sendSeniOzledikEmail(string $kullaniciEposta, string $kullaniciAdi, string $kuponKodu): void
+    {
+        $htmlContent = "<h1>Merhaba {$kullaniciAdi}, sizi özledik!</h1>
+                        <p>Alışverişlerinizde kullanabileceğiniz size özel %10 indirim kuponu tanımladık.</p>
+                        <p><strong>Kupon Kodunuz: {$kuponKodu}</strong></p>
+                        <p>İyi alışverişler dileriz!</p>";
+        $this->sendEmail(
+            $kullaniciEposta,
+            '🎁 Size Özel Bir Hediyemiz Var!',
+            $htmlContent
+        );
+    }
+
+    /**
+     * E-posta göndermek için merkezi bir metod.
+     */
+    private function sendEmail(string $to, string $subject, string $htmlContent): void
+    {
         try {
+            $email = (new Email())
+                ->from(new Address(SMTP_FROM_ADDRESS, SMTP_FROM_NAME))
+                ->to($to)
+                ->subject($subject)
+                ->html($htmlContent);
+
             $this->mailer->send($email);
         } catch (\Exception $e) {
-            error_log("E-posta gönderim hatası: " . $e->getMessage());
+            // E-posta gönderimi başarısız olursa, bunu logla ama süreci durdurma.
+            error_log("E-posta gönderim hatası (Alıcı: {$to}): " . $e->getMessage());
         }
     }
 }
