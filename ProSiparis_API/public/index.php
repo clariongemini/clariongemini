@@ -1,27 +1,32 @@
 <?php
-// public/index.php - Front Controller v2.9
+// API Gateway - public/index.php
 
-// ... (autoload, config, headers)
+// Basit yönlendirme (routing) mantığı
+$requestUri = $_SERVER['REQUEST_URI'];
+$basePath = '/ProSiparis_API/public'; // Projenin alt dizinde çalıştığını varsayalım
+$route = str_replace($basePath, '', $requestUri);
 
-use ProSiparis\Core\Request;
-use ProSiparis\Core\Router;
-use ProSiparis\Middleware\AuthMiddleware;
-use ProSiparis\Middleware\PermissionMiddleware;
-use ProSiparis\Controllers\DepoController;
-use ProSiparis\Controllers\ReportController; // Yeni
-// ... (diğer controller'lar)
+// Auth-Servisi Rotaları
+if (strpos($route, '/api/kullanici/giris') === 0 || strpos($route, '/api/kullanici/kayit') === 0) {
+    // JWT Doğrulama (bu rotalar için atlanır)
+    // İsteği Auth-Servisi'ne yönlendir
+    require __DIR__ . '/../../servisler/auth-servisi/public/index.php';
+    exit;
+}
 
-$request = new Request();
-$router = new Router($request);
-$auth = AuthMiddleware::class;
-
-// --- Depo Rotaları ---
-$router->post('/api/depo/envanter-duzeltme', [DepoController::class, 'envanterDuzeltme'], [$auth, [PermissionMiddleware::class, 'envanter_duzelt']]);
+// --- JWT Doğrulama (Merkezi) ---
+// (JWT doğrulama kodu burada yer alacak)
 // ...
-
-// --- Admin Rotaları ---
-$router->get('/api/admin/raporlar', [ReportController::class, 'olustur'], [$auth, [PermissionMiddleware::class, 'rapor_olustur']]);
-// ...
+// Geçerli bir token varsa, X-User-ID, X-Permissions gibi header'lar hazırlanır.
+// $_SERVER['HTTP_X_USER_ID'] = $decodedToken->data->kullanici_id;
 
 
-$router->dispatch();
+// Katalog-Servisi Rotaları
+if (strpos($route, '/api/urunler') === 0 || strpos($route, '/api/kategoriler') === 0) {
+    require __DIR__ . '/../../servisler/katalog-servisi/public/index.php';
+    exit;
+}
+
+// Ana Monolith (Legacy Core) için kalan tüm istekler
+// Siparişler, İadeler, Tedarikçiler vb.
+require __DIR__ . '/index.legacy.php';
