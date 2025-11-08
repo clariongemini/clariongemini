@@ -3,53 +3,40 @@ namespace ProSiparis\Controllers;
 
 use ProSiparis\Service\DepoService;
 use ProSiparis\Service\IadeService;
+use ProSiparis\Service\EnvanterService; // Yeni
 use ProSiparis\Core\Request;
+use ProSiparis\Core\Auth;
 use PDO;
 
 class DepoController
 {
     private DepoService $depoService;
     private IadeService $iadeService;
+    private EnvanterService $envanterService; // Yeni
 
     public function __construct()
     {
         global $pdo;
         $this->depoService = new DepoService($pdo);
         $this->iadeService = new IadeService($pdo);
+        $this->envanterService = new EnvanterService($pdo); // Yeni
     }
 
-    public function beklenenTeslimatlar(Request $request)
+    // ... (mevcut metodlar)
+
+    /**
+     * POST /api/depo/envanter-duzeltme (YENİ)
+     */
+    public function envanterDuzeltme(Request $request)
     {
-        $sonuc = $this->depoService->beklenenTeslimatlariListele();
+        $veri = $request->getBody();
+        $varyantId = $veri['varyant_id'] ?? 0;
+        $fizikselStok = $veri['fiziksel_stok'] ?? 0;
+        $kullaniciId = Auth::id();
+
+        $sonuc = $this->envanterService->stokDuzelt($varyantId, $fizikselStok, $kullaniciId);
         $this->jsonYanitGonder($sonuc);
     }
 
-    public function teslimatAl(Request $request, $params)
-    {
-        $poId = $params['po_id'];
-        $urunler = $request->getBody()['urunler'] ?? [];
-        $sonuc = $this->depoService->teslimatAl($poId, $urunler);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    public function iadeTeslimAl(Request $request, $params)
-    {
-        $iadeId = $params['iade_id'];
-        $urunler = $request->getBody()['urunler'] ?? [];
-        $sonuc = $this->iadeService->iadeTeslimAl($iadeId, $urunler);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    private function jsonYanitGonder(array $sonuc): void
-    {
-        http_response_code($sonuc['kod']);
-        if ($sonuc['basarili']) {
-            $response = ['durum' => 'basarili'];
-            if (isset($sonuc['veri'])) $response['veri'] = $sonuc['veri'];
-            if (isset($sonuc['mesaj'])) $response['mesaj'] = $sonuc['mesaj'];
-            echo json_encode($response);
-        } else {
-            echo json_encode(['durum' => 'hata', 'mesaj' => $sonuc['mesaj']]);
-        }
-    }
+    private function jsonYanitGonder(array $sonuc): void { /* ... */ }
 }

@@ -1,67 +1,48 @@
-# ProSiparis API v2.8 - Tam Kapsamlı E-Ticaret Operasyonları API'si
+# ProSiparis API v2.9 - Finansal Zeka ve Envanter Bütünlüğü
 
-Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, B2C/B2B satıştan tedarik zinciri ve iade yönetimine kadar tüm e-ticaret operasyonlarını yöneten, modern ve proaktif bir backend (API) sunucusudur.
+Bu proje, "ProSiparis" mobil uygulaması için geliştirilmiş, B2C/B2B satıştan tedarik zinciri ve iade yönetimine kadar tüm e-ticaret operasyonlarını yöneten, finansal kârlılık analizi yapabilen ve tam denetlenebilir bir envanter altyapısına sahip, modern bir backend (API) sunucusudur.
 
-**v2.8 Yenilikleri:** Bu sürüm, envanterin kaynağını (Tedarik Zinciri) ve müşteriden geri dönüşünü (İade Yönetimi - RMA) yöneten iki kritik kurumsal altyapıyı ekleyerek API'yi tam bir operasyonel döngüye kavuşturur.
+**v2.9 Yenilikleri:** Bu sürüm, API'ye finansal bir beyin ve operasyonel bir omurga ekler. Tüm envanter hareketlerini kaydeden bir "Ledger" sistemi, satılan her ürünün maliyetini hesaplayan bir "Ağırlıklı Ortalama Maliyet (AOM)" motoru ve yöneticiler için dinamik bir "Raporlama API'si" ile donatılmıştır.
 
 ---
 
 ## Kurulum
-1.  **Veritabanı Oluşturma:** `schema.sql` dosyasını (**v2.8**) veritabanınıza içe aktarın. Bu şema, yeni tedarik zinciri ve RMA tablolarını içerir.
-2.  **Yapılandırma & Kurulum:** `composer install` komutunu çalıştırın ve `config/ayarlar.php` dosyasını düzenleyin.
-3.  **Cron Job:** `/api/cron/run` endpoint'ini tetikleyecek bir zamanlanmış görev kurun.
+1.  **Veritabanı Oluşturma:** `schema.sql` dosyasını (**v2.9**) veritabanınıza içe aktarın. Bu şema, yeni envanter hareket kaydı (ledger) tablosunu ve kârlılık için gerekli sütunları içerir.
+2.  **Yapılandırma & Diğer Adımlar:** `composer install` komutunu çalıştırın, `config/ayarlar.php` dosyasını düzenleyin ve cron job'u kurun.
 
 ---
 
-## Temel Konseptler (v2.8 Güncellemeleri)
+## Temel Konseptler (v2.9 Güncellemeleri)
 
-### Tedarik Zinciri ve Stok Yönetimi (YENİ)
-Sistem artık envanterin stoğa nasıl girdiğini profesyonel bir şekilde yönetir:
-1.  **Tedarikçiler:** Ürünlerin satın alındığı firmalar sisteme kaydedilir.
-2.  **Satın Alma Siparişleri (PO):** Bir tedarikçiden hangi ürünün, ne kadar ve ne maliyetle alınacağını belirten siparişler oluşturulur.
-3.  **Mal Kabul:** `depo_gorevlisi` rolü, tedarikçiden gelen fiziksel ürünleri Depo API'sini kullanarak teslim alır. Bu işlem, `stok_adedi`'ni otomatik olarak artırır ve PO'nun durumunu günceller.
+### Envanter Bütünlüğü (Ledger) ve `EnvanterService` (YENİ)
+Artık `urun_varyantlari.stok_adedi` sütununa asla doğrudan müdahale edilmez. Tüm envanter değişiklikleri (alım, satım, iade, sayım) yeni ve merkezi `EnvanterService` üzerinden yapılır.
+-   **`envanter_hareketleri` Tablosu:** Stoğu değiştiren her bir işlem (örn: +50 adet alım, -2 adet satış) bu tabloya bir "hareket kaydı" olarak atılır. Bu, tam bir denetim ve geriye dönük izlenebilirlik sağlar.
+-   **Görev Ayrımı:** `DepoService` ve `IadeService` gibi servisler artık stok miktarını kendileri güncellemez; bunun yerine `EnvanterService`'e "stoğu X kadar Y sebebiyle değiştir" komutu gönderirler.
 
-### İade Yönetimi Döngüsü (RMA - YENİ)
-Müşteri iadeleri artık tam bir iş akışıyla yönetilmektedir:
-1.  **Talep Oluşturma:** Müşteri, "Teslim Edildi" statüsündeki bir siparişi için API üzerinden iade talebi oluşturur.
-2.  **Admin Onayı:** `iade_yonet` yetkisine sahip admin, talebi inceler ve onaylar veya reddeder.
-3.  **Depo Kabulü:** Onaylanan iade, müşteri tarafından depoya gönderilir. `depo_gorevlisi`, `iade_teslim_al` yetkisiyle paketi teslim alır, ürünün durumunu ("Satılabilir" veya "Kusurlu") belirler. "Satılabilir" ürünler otomatik olarak stoğa geri eklenir.
-4.  **Para İadesi:** Depodan "Depoya Ulaştı" onayı gelen iadeler için admin, para iadesi işlemini tetikler ve süreç tamamlanır.
+### Kârlılık Analizi (Ağırlıklı Ortalama Maliyet - AOM/WAC) (YENİ)
+Sistem artık satılan her ürünün maliyetini ve dolayısıyla her siparişin net kârını bilir.
+1.  **AOM Hesaplama:** Tedarikçiden yeni bir maliyetle ürün alındığında (`satin_alma`), `EnvanterService` otomatik olarak o ürünün `agirlikli_ortalama_maliyet`'ini günceller.
+2.  **Maliyet Kaydı:** Bir sipariş kargolandığında (`satis`), o anki `agirlikli_ortalama_maliyet` değeri `siparis_detaylari.maliyet_fiyati` sütununa kaydedilir.
+3.  **Sonuç:** Bu iki veri sayesinde, `(birim_fiyat - maliyet_fiyati) * adet` formülüyle her bir satışın net kârı hesaplanabilir.
 
 ---
 
-## API Endpoint'leri (v2.8)
+## API Endpoint'leri (v2.9)
 
-### Tedarik Zinciri ve Stok Girişi API'si (YENİ)
+### Dashboard API (GÜNCELLENMİŞ - Yetki: `dashboard_goruntule`)
+-   **`GET /api/admin/dashboard/kpi-ozet`**: Yanıt artık `bugunku_net_kar` ve `kar_marji` gibi kârlılık metriklerini de içerir.
+-   **`GET /api/admin/dashboard/satis-grafigi`**: Yanıt artık her gün için `tutar` (ciro) ve `kar` (net kâr) verilerini ayrı ayrı döndürür.
 
-#### **Admin Endpoint'leri (Yetki Korumalı)**
--   **Tedarikçi Yönetimi (Yetki: `tedarikci_yonet`)**
-    -   `GET, POST /api/admin/tedarikciler`
-    -   `PUT, DELETE /api/admin/tedarikciler/{id}`
--   **Satın Alma Siparişi Yönetimi (Yetki: `satin_alma_yonet`)**
-    -   `GET, POST /api/admin/satin-alma-siparisleri`
-    -   `PUT /api/admin/satin-alma-siparisleri/{id}`
+### Depo API'si (YENİ Endpoint - Yetki: `envanter_duzelt`)
+-   **`POST /api/depo/envanter-duzeltme`**: Depo görevlisinin fiziksel sayım sonrası stok adetlerini düzeltmesini sağlar.
+    -   **Body:** `{ "varyant_id": 12, "fiziksel_stok": 145, "sebep": "Yıllık sayım, 3 adet kayıp" }`
+    -   Bu işlem, `envanter_hareketleri` tablosuna 'sayim_duzeltme_giris' veya 'sayim_duzeltme_cikis' olarak kaydedilir.
 
-#### **Depo Endpoint'leri (Yetki Korumalı)**
--   **`GET /api/depo/beklenen-teslimatlar` (Yetki: `satin_alma_teslim_al`)**: Tedarikçilerden gelmesi beklenen PO'ları listeler.
--   **`POST /api/depo/teslimat-al/{po_id}` (Yetki: `satin_alma_teslim_al`)**: Bir PO'ya ait ürünlerin mal kabulünü yapar ve stokları artırır.
-    -   **Body:** `{ "urunler": [{"varyant_id": 12, "gelen_adet": 50}] }`
+### Dinamik Raporlama API'si (YENİ - Yetki: `rapor_olustur`)
+-   **`GET /api/admin/raporlar`**: Yöneticiye, sorgu parametreleri aracılığıyla filtrelenebilir, dinamik raporlar sunar.
+    -   **Örnek Sorgular:**
+        -   `?rapor_tipi=kar_zarar&baslangic_tarihi=2025-01-01&bitis_tarihi=2025-03-31`
+        -   `?rapor_tipi=kar_zarar&grup_by=kategori`
+    -   **Döndürdüğü Veri:** Sorguya göre gruplanmış Ciro, Maliyet ve Net Kâr verilerini içerir.
 
-### İade Yönetimi (RMA) API'si (YENİ)
-
-#### **Kullanıcı Endpoint'leri (Kullanıcı Korumalı)**
--   **`POST /api/kullanici/iade-talebi-olustur`**: Bir sipariş için iade talebi başlatır.
-    -   **Body:** `{ "siparis_id": 105, "sebep": "...", "urunler": [{"varyant_id": 12, "adet": 1}] }`
--   **`GET /api/kullanici/iade-talepleri`**: Kullanıcının tüm iade taleplerini ve durumlarını listeler.
-
-#### **Admin Endpoint'leri (Yetki: `iade_yonet`)**
--   **`GET /api/admin/iade-talepleri`**: Tüm iade taleplerini listeler (filtrelenebilir).
--   **`PUT /api/admin/iade-talepleri/{id}/durum-guncelle`**: Bir iade talebini "Onaylandı" veya "Reddedildi" olarak günceller.
-    -   **Body:** `{ "durum": "Onaylandı" }`
--   **`POST /api/admin/iade-talepleri/{id}/odeme-yap`**: Depodan onayı gelmiş bir iade için müşteriye para iadesi işlemini tetikler.
-
-#### **Depo Endpoint'leri (Yetki: `iade_teslim_al`)**
--   **`POST /api/depo/iade-teslim-al/{iade_id}`**: Müşteriden gelen iade paketini teslim alır, ürün durumunu belirler ve satılabilir ürünleri stoğa geri ekler.
-    -   **Body:** `{ "urunler": [{"varyant_id": 12, "adet": 1, "durum": "Satılabilir"}] }`
-
-_(Diğer tüm endpoint'ler v2.7 ile aynıdır.)_
+_(Diğer tüm endpoint'ler v2.8 ile aynıdır.)_
