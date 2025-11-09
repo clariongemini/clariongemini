@@ -1,27 +1,19 @@
 <?php
-// public/index.php - Front Controller v2.9
+// Ana Monolith (Legacy Core) - public/index.legacy.php
 
-// ... (autoload, config, headers)
+// ... (gerekli dosyalar)
 
 use ProSiparis\Core\Request;
 use ProSiparis\Core\Router;
-use ProSiparis\Middleware\AuthMiddleware;
-use ProSiparis\Middleware\PermissionMiddleware;
-use ProSiparis\Controllers\DepoController;
-use ProSiparis\Controllers\ReportController; // Yeni
-// ... (diğer controller'lar)
+use ProSiparis\Controllers\CouponController;
 
 $request = new Request();
 $router = new Router($request);
-$auth = AuthMiddleware::class;
 
-// --- Depo Rotaları ---
-$router->post('/api/depo/envanter-duzeltme', [DepoController::class, 'envanterDuzeltme'], [$auth, [PermissionMiddleware::class, 'envanter_duzelt']]);
-// ...
+// --- INTERNAL API ENDPOINTS ---
+$router->post('/internal/legacy/kupon-dogrula', [CouponController::class, 'internalKuponDogrula']);
 
-// --- Admin Rotaları ---
-$router->get('/api/admin/raporlar', [ReportController::class, 'olustur'], [$auth, [PermissionMiddleware::class, 'rapor_olustur']]);
-// ...
-
+// --- PUBLIC API ENDPOINTS ---
+// ... (CMS, Destek Talepleri gibi Monolith'te kalan özelliklerin rotaları)
 
 $router->dispatch();

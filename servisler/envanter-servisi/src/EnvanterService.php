@@ -13,22 +13,41 @@ class EnvanterService
         $this->pdo = $pdo;
     }
 
-    public function stokGuncelle(int $varyantId, string $hareketTipi, int $degisimMiktari, ?int $referansId, ?float $maliyet, ?int $kullaniciId): void
+    /**
+     * Event Bus'taki envanterle ilgili olayları işler.
+     * Bu metod, bir cron job veya worker tarafından periyodik olarak çağrılmalıdır.
+     */
+    public function olaylariIsle(): array
     {
-        // ... (mevcut stok güncelleme, AOM hesaplama, ledger'a yazma mantığı)
+        // Sadece 'siparis.kargolandi' olaylarını dinle
+        $stmt = $this->pdo->prepare("SELECT olay_id, veri FROM olay_gunlugu WHERE olay_tipi = 'siparis.kargolandi' AND islendi = 0 ORDER BY olay_id ASC");
+        $stmt->execute();
+        $olaylar = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // İşlem sonunda, olayı Event Bus'a (olay_gunlugu tablosu) yayınla
-        $this->olayYayinla('stok_guncellendi', [
-            'varyant_id' => $varyantId,
-            'yeni_stok' => $sonrakiStok, // stokGuncelle içindeki hesaplanmış değer
-            'yeni_aom' => $yeniAom      // stokGuncelle içindeki hesaplanmış değer
-        ]);
+        $islenen_olay_sayisi = 0;
+        foreach ($olaylar as $olay) {
+            $this->pdo->beginTransaction();
+            try {
+                $veri = json_decode($olay['veri'], true);
+                $siparisId = $veri['siparis_id'];
+                $urunler = $veri['urunler'];
+
+                foreach ($urunler as $urun) {
+                    $this->stokGuncelle($urun['varyant_id'], 'satis', -$urun['adet'], $siparisId, (float)$urun['maliyet_fiyati'], null);
+                }
+
+                // İşlenen olayı işaretle
+                $this->pdo->prepare("UPDATE olay_gunlugu SET islendi = 1 WHERE olay_id = ?")->execute([$olay['olay_id']]);
+
+                $this->pdo->commit();
+                $islenen_olay_sayisi++;
+            } catch (Exception $e) {
+                $this->pdo->rollBack();
+                error_log("Envanter olayı işlenirken hata (ID: {$olay['olay_id']}): " . $e->getMessage());
+            }
+        }
+        return ['islenen_olay_sayisi' => $islenen_olay_sayisi];
     }
 
-    private function olayYayinla(string $olayTipi, array $veri): void
-    {
-        $sql = "INSERT INTO olay_gunlugu (olay_tipi, veri) VALUES (?, ?)";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$olayTipi, json_encode($veri)]);
-    }
+    // ... (stokGuncelle ve diğer metodlar)
 }

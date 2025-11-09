@@ -1,10 +1,9 @@
 <?php
-namespace ProSiparis\Service; // Bu namespace, dosyanın yeni yerini yansıtacak şekilde güncellenmeli
+namespace ProSiparis\Service;
 
 use PDO;
-use Exception;
 
-class UrunService // KatalogService olarak düşünülebilir
+class UrunService
 {
     private PDO $pdo;
 
@@ -13,35 +12,35 @@ class UrunService // KatalogService olarak düşünülebilir
         $this->pdo = $pdo;
     }
 
-    // ... (mevcut tumunuGetir, idIleGetir gibi ürün listeleme metodları)
+    // ... (mevcut public metodlar)
 
     /**
-     * Event Bus'taki (olay_gunlugu) stok güncelleme olaylarını işler.
-     * Bu metod, bir cron job veya worker tarafından periyodik olarak çağrılmalıdır.
+     * Verilen ID listesindeki varyantların, belirtilen fiyat listesine göre fiyatlarını getirir.
+     * @param array $varyantIds
+     * @param int $fiyatListesiId
+     * @return array
      */
-    public function olaylariIsle(): array
+    public function idListesineGoreFiyatlariGetir(array $varyantIds, int $fiyatListesiId): array
     {
-        // Gerçek bir senaryoda, son işlenen olayın ID'si bir yerde tutulur.
-        // Şimdilik basitçe son 1 saatteki olayları alıyoruz.
-        $stmt = $this->pdo->prepare("SELECT olay_id, veri FROM olay_gunlugu WHERE olay_tipi = 'stok_guncellendi' AND olusturma_tarihi > NOW() - INTERVAL 1 HOUR ORDER BY olay_id ASC");
-        $stmt->execute();
-        $olaylar = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $islenen_olay_sayisi = 0;
-        foreach ($olaylar as $olay) {
-            $veri = json_decode($olay['veri'], true);
-            if (!isset($veri['varyant_id']) || !isset($veri['yeni_stok'])) {
-                continue;
-            }
-
-            // Katalog servisinin kendi veritabanındaki stok adedini güncelle
-            $sqlUpdate = "UPDATE urun_varyantlari SET stok_adedi = ? WHERE varyant_id = ?";
-            $stmtUpdate = $this->pdo->prepare($sqlUpdate);
-            $stmtUpdate->execute([$veri['yeni_stok'], $veri['varyant_id']]);
-            $islenen_olay_sayisi++;
-
-            // Gerçek bir sistemde, işlenen olaylar silinir veya 'isaretlenir'.
+        if (empty($varyantIds)) {
+            return ['basarili' => true, 'kod' => 200, 'veri' => []];
         }
-        return ['islenen_olay_sayisi' => $islenen_olay_sayisi];
+
+        $placeholders = rtrim(str_repeat('?,', count($varyantIds)), ',');
+        $sql = "
+            SELECT vf.varyant_id, vf.fiyat
+            FROM varyant_fiyatlari vf
+            WHERE vf.varyant_id IN ($placeholders) AND vf.fiyat_listesi_id = ?
+        ";
+
+        $params = array_merge($varyantIds, [$fiyatListesiId]);
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        // Sonucu ['varyant_id' => fiyat] formatında bir diziye dönüştür
+        $fiyatlar = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        return ['basarili' => true, 'kod' => 200, 'veri' => $fiyatlar];
     }
 }

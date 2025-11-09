@@ -1,10 +1,8 @@
 <?php
-namespace ProSiparis\Controllers;
+namespace ProSiparis\Controllers; // Varsayılan namespace
 
 use ProSiparis\Service\UrunService;
 use ProSiparis\Core\Request;
-use ProSiparis\Core\Auth;
-use PDO;
 
 class UrunController
 {
@@ -12,74 +10,32 @@ class UrunController
 
     public function __construct()
     {
-        global $pdo;
+        global $pdo; // Bu, her servisin kendi veritabanı bağlantısını yönetmesiyle değiştirilmeli
         $this->urunService = new UrunService($pdo);
     }
 
-    /**
-     * GET /api/urunler endpoint'ini yönetir.
-     * Kullanıcının fiyat listesine göre ürünleri listeler.
-     */
-    public function listele(Request $request): void
-    {
-        // Giriş yapmış kullanıcının fiyat listesini al, yoksa varsayılan (1) kullan
-        $fiyatListesiId = Auth::check() ? Auth::user()->fiyat_listesi_id : 1;
-
-        $sonuc = $this->urunService->tumunuGetir($fiyatListesiId);
-        $this->jsonYanitGonder($sonuc);
-    }
+    // ... (mevcut public metodlar: listele, detay)
 
     /**
-     * GET /api/urunler/{id} endpoint'ini yönetir.
-     * Kullanıcının fiyat listesine göre ürün detayını getirir.
+     * GET /internal/katalog/varyantlar
+     * Sadece servisler arası iletişim için.
+     * Verilen ID'lere sahip varyantların fiyatlarını döndürür.
      */
-    public function detay(Request $request, $params): void
+    public function internalVaryantlariGetir(Request $request): void
     {
-        $id = $params['id'];
-        $fiyatListesiId = Auth::check() ? Auth::user()->fiyat_listesi_id : 1;
-        $kullaniciId = Auth::check() ? Auth::id() : null;
+        $queryParams = $request->getQueryParams();
+        $ids = $queryParams['ids'] ?? '';
+        $fiyatListesiId = $queryParams['fiyatListesiId'] ?? 1;
 
-        $sonuc = $this->urunService->idIleGetir($id, $fiyatListesiId, $kullaniciId);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    /**
-     * POST /api/admin/urunler endpoint'ini yönetir.
-     */
-    public function olustur(Request $request): void
-    {
-        $veri = $request->getBody();
-        $sonuc = $this->urunService->urunOlustur($veri);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    /**
-     * DELETE /api/admin/urunler/{id} endpoint'ini yönetir.
-     */
-    public function sil(Request $request, $params): void
-    {
-        $id = $params['id'];
-        $sonuc = $this->urunService->urunSil($id);
-        $this->jsonYanitGonder($sonuc);
-    }
-
-    // (Diğer metodlar: guncelle, kategoriyeGoreListele, favori işlemleri vb. benzer şekilde güncellenebilir)
-
-    public function favoriyeEkle(Request $request): void
-    {
-        // Bu metodun güncellenmesine gerek yok.
-    }
-
-    private function jsonYanitGonder(array $sonuc): void
-    {
-        http_response_code($sonuc['kod']);
-        if ($sonuc['basarili']) {
-            $response = ['durum' => 'basarili'];
-            if (isset($sonuc['veri'])) $response['veri'] = $sonuc['veri'];
-            if (isset($sonuc['mesaj'])) $response['mesaj'] = $sonuc['mesaj'];
-            echo json_encode($response);
-        } else {
-            echo json_encode(['durum' => 'hata', 'mesaj' => $sonuc['mesaj']]);
+        if (empty($ids)) {
+            $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Varyant ID\'leri eksik.']);
+            return;
         }
+
+        $idList = explode(',', $ids);
+        $sonuc = $this->urunService->idListesineGoreFiyatlariGetir($idList, (int)$fiyatListesiId);
+        $this->jsonYanitGonder($sonuc);
     }
+
+    private function jsonYanitGonder(array $sonuc): void { /* ... */ }
 }

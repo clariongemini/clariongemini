@@ -46,6 +46,22 @@ class KullaniciController
         $this->jsonYanitGonder($sonuc);
     }
 
+    /**
+     * Dahili servis kullanımı için kullanıcı bilgilerini ID ile getirir.
+     * Bu endpoint'in gateway tarafından korunuyor olması gerekir.
+     */
+    public function dahiliKullaniciGetir(Request $request, array $params): void
+    {
+        if (!isset($params['id']) || !is_numeric($params['id'])) {
+            $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Geçersiz kullanıcı ID.']);
+            return;
+        }
+
+        $kullaniciId = (int)$params['id'];
+        $sonuc = $this->kullaniciService->profilGetir($kullaniciId);
+        $this->jsonYanitGonder($sonuc);
+    }
+
     private function jsonYanitGonder(array $sonuc): void
     {
         http_response_code($sonuc['kod']);

@@ -1,9 +1,8 @@
 <?php
-namespace ProSiparis\Controller;
+namespace ProSiparis\Controllers;
 
 use ProSiparis\Service\CouponService;
 use ProSiparis\Core\Request;
-use ProSiparis\Core\Auth;
 
 class CouponController
 {
@@ -16,23 +15,25 @@ class CouponController
     }
 
     /**
-     * POST /api/sepet/kupon-dogrula
+     * POST /internal/legacy/kupon-dogrula
+     * Sadece servisler arası iletişim için.
      */
-    public function dogrula(Request $request): void
+    public function internalKuponDogrula(Request $request): void
     {
         $veri = $request->getBody();
         $kuponKodu = $veri['kupon_kodu'] ?? '';
-        $sepetTutari = $veri['mevcut_sepet_tutari'] ?? 0;
-
-        if (empty($kuponKodu) || $sepetTutari <= 0) {
-            http_response_code(400);
-            echo json_encode(['gecerli' => false, 'mesaj' => 'Kupon kodu ve sepet tutarı gereklidir.']);
-            return;
-        }
+        $sepetTutari = $veri['sepet_tutari'] ?? 0;
 
         $sonuc = $this->couponService->kuponDogrula($kuponKodu, (float)$sepetTutari);
 
-        http_response_code($sonuc['gecerli'] ? 200 : 400);
-        echo json_encode($sonuc);
+        // Bu bir internal endpoint olduğu için, sonucu doğrudan JSON olarak basabiliriz.
+        header("Content-Type: application/json; charset=UTF-8");
+        if ($sonuc['gecerli']) {
+            http_response_code(200);
+            echo json_encode(['durum' => 'basarili', 'veri' => $sonuc]);
+        } else {
+            http_response_code(400);
+            echo json_encode(['durum' => 'hata', 'mesaj' => $sonuc['mesaj']]);
+        }
     }
 }
