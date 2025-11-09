@@ -8,24 +8,20 @@ class SiparisService
 {
     // ...
 
-    public function odemeBaslat(array $veri): array
+    public function siparisOlustur(array $veri): array
     {
-        // ... (sepet, adres vb. verileri al)
-
-        $indirimTutari = 0;
+        // ... (kupon doğrulama ve indirim hesaplama)
         if (!empty($veri['kupon_kodu'])) {
             $kuponSonuc = $this->kuponDogrula($veri['kupon_kodu']);
             if (!$kuponSonuc['basarili']) {
-                return ['basarili' => false, 'kod' => 400, 'mesaj' => $kuponSonuc['mesaj']];
+                return $kuponSonuc;
             }
-            // İndirim hesaplama mantığı...
-            // $indirimTutari = ...
+            // ... indirim hesapla
         }
 
-        // Sipariş oluşturma ve ödeme seansı başlatma...
-        // ...
+        // ... (stok optimizasyonu, siparişi veritabanına yazma, olay yayınlama)
 
-        return ['basarili' => true, /* ... */];
+        return ['basarili' => true, 'kod' => 201, 'veri' => ['siparis_id' => $siparisId]];
     }
 
     private function kuponDogrula(string $kuponKodu): array

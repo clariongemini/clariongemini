@@ -1,7 +1,6 @@
 -- Ana Monolith (Legacy Core) Veritabanı Şeması v3.2 (Temizlenmiş)
 -- Ana Monolith (Legacy Core) Veritabanı Şeması v4.2 (Temizlenmiş)
 
-CREATE TABLE `sayfalar` ( /* ... */ );
 CREATE TABLE `bannerlar` ( /* ... */ );
 CREATE TABLE `destek_talepleri` ( /* ... */ );
 CREATE TABLE `destek_mesajlari` ( /* ... */ );
