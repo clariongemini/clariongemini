@@ -25,10 +25,28 @@ class IadeService
 
     private function checkOrderStatus(int $orderId): bool
     {
-        // Gerçek senaryoda bu, Siparis-Servisi'ne bir cURL veya Guzzle HTTP isteği olacaktır.
-        // Örn: $response = $client->get('http://siparis-servisi/internal/siparisler/durum-kontrol?siparis_id=' . $orderId);
-        // Bu basit örnekte, siparişin her zaman "Teslim Edildi" olduğunu varsayıyoruz.
-        return true;
+        // Docker internal network'te servis adıyla çözümleme varsayımı
+        $url = 'http://siparis-servisi/internal/siparisler/durum-kontrol?siparis_id=' . $orderId;
+
+        try {
+            // @ operatörü, 4xx/5xx HTTP durum kodlarında PHP'nin uyarı vermesini engeller.
+            $responseJson = @file_get_contents($url);
+
+            if ($responseJson === false) {
+                // Servise ulaşılamadı veya bir hata oluştu.
+                error_log("Siparis-Servisi durum kontrolü başarısız: Servise ulaşılamadı.");
+                return false;
+            }
+
+            $response = json_decode($responseJson, true);
+
+            // Başarılı bir yanıt ve 'Teslim Edildi' durumu bekleniyor.
+            return isset($response['basarili']) && $response['basarili'] && isset($response['durum']) && $response['durum'] === 'Teslim Edildi';
+
+        } catch (Exception $e) {
+            error_log("Siparis-Servisi durum kontrolü sırasında istisna: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function iadeTalebiOlustur(array $veri): array
