@@ -22,6 +22,8 @@ if (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler/', $route) || preg
 
 // Diğer servis rotaları
 $servisHaritasi = [
+    '/api/sepet/kupon-dogrula' => 'kupon-servisi',
+    '/api/admin/kuponlar' => 'kupon-servisi',
     '/api/admin/raporlar' => 'raporlama-servisi',
     '/api/admin/dashboard/kpi-ozet' => 'raporlama-servisi',
     '/api/organizasyon/' => 'organizasyon-servisi',

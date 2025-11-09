@@ -1,46 +1,43 @@
-# ProSiparis API v4.1 - Merkezi Raporlama ve Optimizasyon
+# ProSiparis API v4.2 - Kupon Servisi'nin Ayrıştırılması
 
-Bu sürüm, v4.0'da kurulan WMS mimarisinin yarattığı en büyük zorluğu çözer: **dağıtık veri kaynaklarından bütünsel raporlama yapabilmek**. Ayrıca, v4.0'da tespit edilen bir performans riskini gidererek sistemi daha ölçeklenebilir hale getirir.
+Bu sürüm, `Siparis-Servisi`'nin Ana Monolith'e olan son kritik senkron bağımlılığını kırarak, platformun ana ticaret akışının dayanıklılığını (resilience) en üst seviyeye çıkarır.
 
-## v4.1 Yenilikleri:
+## v4.2 Yenilikleri:
 
-1.  **Dağıtık Raporlama Sorunu Çözüldü:** Artık 7+ farklı mikroservis veritabanına yayılmış olan operasyonel veriyi (satışlar, stok hareketleri vb.) merkezi bir yerde toplayan ve analiz eden yeni bir `raporlama-servisi` kuruldu.
-2.  **v4.0 Stok Optimizasyon Performans Riski Giderildi:** Sipariş oluşturma sırasındaki stok uygunluğu kontrolü, bu işin mantığının sahibi olan `Envanter-Servisi`'ne taşındı. Bu, `Siparis-Servisi` üzerindeki analiz yükünü kaldırarak performansı artırdı.
+1.  **Sipariş Akışının Bağımsızlaştırılması:** `Siparis-Servisi`'nin kupon doğrulamak için Ana Monolith'e yaptığı tehlikeli senkron çağrı kaldırıldı. Bu, Ana Monolith'te yaşanacak bir sorunun, kuponlu siparişlerin oluşturulmasını engelleme riskini tamamen ortadan kaldırır.
+2.  **Kupon Modülü Ayrıştırıldı:** Kupon yönetimi, kendine ait bir veritabanı ve iş mantığına sahip olan yeni ve bağımsız bir `kupon-servisi`'ne taşındı.
 
 ---
 
-## Mimari Konseptler (v4.1 Güncellemeleri)
+## Mimari Konseptler (v4.2 Güncellemeleri)
 
-### Yeni Servis: `servisler/raporlama-servisi/`
--   **Sorumluluk:** Bu servis, bir **Veri Ambarı (Data Warehouse)** görevi görür. Diğer servisler tarafından yayınlanan operasyonel olayları (`siparis.kargolandi` vb.) dinler, bu verileri zenginleştirir ve analiz için optimize edilmiş kendi **OLAP** veritabanına yazar.
--   **Denormalize Veri Ambarı:** `rapor_satis_ozetleri` gibi tablolar, sorgu anında birden fazla servise JOIN atma ihtiyacını ortadan kaldırmak için kasıtlı olarak veri tekrarı içerir (örn: `depo_adi`, `urun_adi` vb.). Bu, raporların milisaniyeler içinde üretilmesini sağlar.
+### Yeni Servis: `servisler/kupon-servisi/`
+-   **Sorumluluk:** Kuponların oluşturulması, yönetilmesi, doğrulanması ve kullanım sayılarının takibinden sorumludur.
+-   **Ana Monolith'ten Ayrılan Modüller:** Kuponlar (v2.3) modülü Ana Monolith'ten tamamen ayrılmıştır.
+-   **Ana Monolith'in Kalan Son Görevleri:** CMS, Destek Talepleri (Ticketing) ve Pazarlama Otomasyonu (Cron Job).
 
 ---
 
 ## Servisler Arası Yeni İletişim Akışları
 
-### Asenkron Akış (Olay Dinleme)
--   **`Raporlama-Servisi`'nin Olay Aboneliği:**
-    -   `siparis.kargolandi` olayını dinler -> `rapor_satis_ozetleri` tablosunu doldurur.
-    -   `tedarik.mal_kabul_yapildi` ve `iade.stoga_geri_alindi` olaylarını dinler -> `rapor_stok_hareketleri` tablosunu besler.
+### Senkron Akış (Kupon Doğrulama)
+-   **`Siparis-Servisi` -> `Kupon-Servisi` Çağrısı:**
+    -   `Siparis-Servisi`, bir ödeme başlatmadan önce, artık kupon kodunu doğrulamak için `Kupon-Servisi`'ne güvenli bir dahili API çağrısı yapar: `POST /internal/kupon/dogrula`.
 
-### Senkron Akış (Performans İyileştirmesi)
--   **`Siparis-Servisi` -> `Envanter-Servisi` Çağrısı:**
-    -   `Siparis-Servisi` artık stok optimizasyonu için `Envanter-Servisi`'ne sepetin tamamını gönderdiği yeni bir dahili API çağrısı yapar: `POST /internal/envanter/uygun-depo-bul`.
-    -   `Envanter-Servisi`, kendi veritabanında yaptığı analiz sonucunda uygun depoların bir listesini döner. Bu, analiz yükünü doğru servise taşır.
+### Asenkron Akış (Kupon Kullanımını Kaydetme)
+-   **`Kupon-Servisi`'nin Olay Aboneliği:**
+    -   `Kupon-Servisi`, `siparis.basarili` olayını dinler.
+    -   Olayın içinde bir `kullanilan_kupon_kodu` varsa, ilgili kuponun `kac_kez_kullanildi` sayacını kendi veritabanında asenkron olarak +1 artırır ve bir kullanım logu oluşturur. Bu yapı, sipariş anındaki doğrulamayı hızlı tutar ve kullanım kaydını dayanıklı hale getirir.
 
 ---
 
-## API Endpoint'leri (v4.1)
+## API Endpoint'leri (v4.2)
 
-### Yeni Endpoint'ler
--   `GET /api/admin/raporlar`: Tarih, depo, kategori gibi filtrelere göre satış raporlarını sunar. (Yetki: `rapor_goruntule`)
--   `GET /api/admin/dashboard/kpi-ozet`: Dashboard için toplam ciro, kar, sipariş sayısı gibi temel metrikleri sunar.
--   `GET /api/organizasyon/depolar`: Sistemdeki tüm depoları listeler.
--   `POST /internal/envanter/uygun-depo-bul`: `Siparis-Servisi`'nin stok optimizasyonu için kullandığı yeni dahili endpoint.
-
-### Güncellenmiş Endpoint'ler
--   `POST /api/odeme/baslat`: Artık stok optimizasyon mantığını kendi içinde çalıştırmak yerine `Envanter-Servisi`'ne delege eder.
+### Yeni/Taşınan Endpoint'ler
+-   `POST /api/sepet/kupon-dogrula`: Sepet ekranında bir kuponun geçerliliğini kontrol etmek için kullanılır. Artık `Kupon-Servisi` tarafından yönetilmektedir.
+-   `GET, POST, PUT, DELETE /api/admin/kuponlar`: Admin panelinin kuponları yönetmesi için gereken tüm CRUD endpoint'leri. Artık `Kupon-Servisi` tarafından yönetilmektedir.
+-   `POST /internal/kupon/dogrula`: `Siparis-Servisi`'nin kupon doğrulamak için kullandığı yeni dahili endpoint.
 
 ### Kaldırılan Endpoint'ler
--   `GET /api/admin/raporlar` (Ana Monolith): Monolith'teki eski ve işlevsiz raporlama endpoint'i tamamen kaldırılmıştır.
+-   `POST /internal/legacy/kupon-dogrula`: Ana Monolith'teki eski kupon doğrulama endpoint'i tamamen kaldırılmıştır.
+-   Ana Monolith'in public API'sindeki tüm `/api/sepet/kupon-dogrula` ve `/api/admin/kuponlar` endpoint'leri kaldırılmıştır.
