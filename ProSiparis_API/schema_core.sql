@@ -1,11 +1,7 @@
--- Ana Monolith (Legacy Core) Veritabanı Şeması v3.2 (Temizlenmiş)
--- Ana Monolith (Legacy Core) Veritabanı Şeması v4.2 (Temizlenmiş)
+-- Ana Monolith (Legacy Core) Veritabanı Şeması v4.3 (Feshedildi)
 
-CREATE TABLE `bannerlar` ( /* ... */ );
-CREATE TABLE `destek_talepleri` ( /* ... */ );
-CREATE TABLE `destek_mesajlari` ( /* ... */ );
-
--- Olay günlüğü, merkezi yapıda olduğu için burada kalır.
+-- Olay günlüğü, merkezi yapıda olduğu ve tüm servisler tarafından kullanıldığı için burada kalır.
+-- Diğer tüm tablolar, kendi mikroservislerine taşınmıştır.
 CREATE TABLE `olay_gunlugu` (
   `olay_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
   `olay_tipi` VARCHAR(100) NOT NULL,
