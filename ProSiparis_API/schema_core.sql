@@ -12,5 +12,6 @@ CREATE TABLE `olay_gunlugu` (
   `olay_tipi` VARCHAR(100) NOT NULL,
   `veri` JSON NOT NULL,
   `islendi` BOOLEAN NOT NULL DEFAULT FALSE,
+  `islendi_raporlama` BOOLEAN NOT NULL DEFAULT FALSE,
   `olusturma_tarihi` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

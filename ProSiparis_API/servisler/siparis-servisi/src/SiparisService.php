@@ -83,45 +83,29 @@ class SiparisService
         return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Sipariş kargoya verildi ve WMS envanter olayı yayınlandı.'];
     }
 
-    private function findUygunDepo(array $varyantIds, array $sepet): ?int
+    private function findUygunDepo(array $sepet): ?int
     {
-        $url = 'http://envanter-servisi/internal/stok-durumu?varyant_ids=' . implode(',', $varyantIds);
-        $stokDurumuVerisi = @json_decode(file_get_contents($url), true);
+        $url = 'http://envanter-servisi/internal/envanter/uygun-depo-bul';
+        $options = [
+            'http' => [
+                'header'  => "Content-type: application/json\r\n",
+                'method'  => 'POST',
+                'content' => json_encode(['sepet' => $sepet]),
+            ],
+        ];
+        $context  = stream_context_create($options);
+        $responseJson = @file_get_contents($url, false, $context);
 
-        if (!$stokDurumuVerisi || !($stokDurumuVerisi['basarili'] ?? false)) {
-            return null; // Envanter servisine ulaşılamadı.
-        }
-        $stokDurumu = $stokDurumuVerisi['veri'];
-
-        // Sepetteki her ürün için potansiyel depoları ve stok miktarlarını haritala.
-        $urunDepoStoklari = [];
-        foreach ($sepet as $urun) {
-            $urunDepoStoklari[$urun['varyant_id']] = [];
-            if (isset($stokDurumu[$urun['varyant_id']])) {
-                foreach ($stokDurumu[$urun['varyant_id']] as $depoStok) {
-                    $urunDepoStoklari[$urun['varyant_id']][$depoStok['depo_id']] = $depoStok['stok'];
-                }
-            }
+        if ($responseJson === false) {
+            return null;
         }
 
-        // Tüm ürünleri karşılayabilecek bir depo ara.
-        $potansiyelDepolar = array_keys($urunDepoStoklari[$sepet[0]['varyant_id']] ?? []);
-        foreach ($potansiyelDepolar as $depoId) {
-            $buDepoUygun = true;
-            foreach ($sepet as $urun) {
-                $istenenAdet = $urun['adet'];
-                $mevcutAdet = $urunDepoStoklari[$urun['varyant_id']][$depoId] ?? 0;
-                if ($mevcutAdet < $istenenAdet) {
-                    $buDepoUygun = false;
-                    break;
-                }
-            }
-            if ($buDepoUygun) {
-                return $depoId; // İlk uygun depoyu bulduk.
-            }
+        $response = json_decode($responseJson, true);
+        if ($response['basarili'] && !empty($response['veri']['depo_idler'])) {
+            return $response['veri']['depo_idler'][0]; // MVP: İlk uygun depoyu seç
         }
 
-        return null; // Uygun depo bulunamadı.
+        return null;
     }
 
     /**

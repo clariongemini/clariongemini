@@ -103,6 +103,48 @@ class EnvanterService
         return ['basarili' => true, 'veri' => $response];
     }
 
+    /**
+     * Dahili API: Verilen bir sepeti karşılayabilecek depoların listesini bulur.
+     */
+    public function findUygunDepo(array $sepet): array
+    {
+        if (empty($sepet)) {
+            return ['basarili' => true, 'kod' => 200, 'veri' => ['depo_idler' => []]];
+        }
+
+        $varyantIds = array_column($sepet, 'varyant_id');
+        $stokDurumu = $this->getDepoStokDurumu($varyantIds)['veri'];
+
+        $urunDepoStoklari = [];
+        foreach ($sepet as $urun) {
+            $urunDepoStoklari[$urun['varyant_id']] = [];
+            if (isset($stokDurumu[$urun['varyant_id']])) {
+                foreach ($stokDurumu[$urun['varyant_id']] as $depoStok) {
+                    $urunDepoStoklari[$urun['varyant_id']][$depoStok['depo_id']] = $depoStok['stok'];
+                }
+            }
+        }
+
+        $uygunDepolar = [];
+        $potansiyelDepolar = array_keys($urunDepoStoklari[$sepet[0]['varyant_id']] ?? []);
+        foreach ($potansiyelDepolar as $depoId) {
+            $buDepoUygun = true;
+            foreach ($sepet as $urun) {
+                $istenenAdet = $urun['adet'];
+                $mevcutAdet = $urunDepoStoklari[$urun['varyant_id']][$depoId] ?? 0;
+                if ($mevcutAdet < $istenenAdet) {
+                    $buDepoUygun = false;
+                    break;
+                }
+            }
+            if ($buDepoUygun) {
+                $uygunDepolar[] = $depoId;
+            }
+        }
+
+        return ['basarili' => true, 'kod' => 200, 'veri' => ['depo_idler' => $uygunDepolar]];
+    }
+
     private function seriNoGirisiYap(int $depoId, int $varyantId, array $seriNumaralari, int $poId): void
     {
         $sql = "INSERT INTO envanter_seri_numaralari (seri_no, varyant_id, depo_id, po_id, durum) VALUES (?, ?, ?, ?, 'stokta')";

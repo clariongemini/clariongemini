@@ -29,6 +29,15 @@ if (preg_match('/^\/internal\/stok-durumu\/?$/', $path)) {
         $varyantIds = array_map('intval', $varyantIds);
         $response = $service->getDepoStokDurumu($varyantIds);
     }
+} elseif (preg_match('/^\/internal\/envanter\/uygun-depo-bul\/?$/', $path)) {
+    if ($requestMethod === 'POST') {
+        $sepet = json_decode(file_get_contents('php://input'), true);
+        if (isset($sepet['sepet'])) {
+            $response = $service->findUygunDepo($sepet['sepet']);
+        } else {
+            $response = ['basarili' => false, 'kod' => 400, 'mesaj' => '`sepet` anahtarı ile bir JSON nesnesi bekleniyor.'];
+        }
+    }
 }
 
 if (!isset($response)) {

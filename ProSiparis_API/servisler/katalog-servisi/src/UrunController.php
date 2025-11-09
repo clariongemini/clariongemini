@@ -51,5 +51,17 @@ class UrunController
         $this->jsonYanitGonder($sonuc);
     }
 
+    public function internalGetVaryantDetaylari(Request $request, array $params): void
+    {
+        $varyantId = $params['id'] ?? null;
+        if (empty($varyantId)) {
+            $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Varyant ID eksik.']);
+            return;
+        }
+
+        $sonuc = $this->urunService->getVaryantDetaylari((int)$varyantId);
+        $this->jsonYanitGonder($sonuc);
+    }
+
     private function jsonYanitGonder(array $sonuc): void { /* ... */ }
 }

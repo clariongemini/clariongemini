@@ -1,37 +1,46 @@
-# ProSiparis API v4.0 - WMS Devrimi (Çoklu Depo & Hibrit Envanter)
+# ProSiparis API v4.1 - Merkezi Raporlama ve Optimizasyon
 
-Bu sürüm, ProSiparis API'sini temelden yeniden yapılandırarak, basit bir e-ticaret arka ucundan tam teşekküllü bir **Kurumsal Depo Yönetim Sistemi (WMS)** mimarisine dönüştürür. Bu, platformun "Çoklu Depo" yönetmesini ve hem adet bazlı hem de "Seri Numarası" (QR) bazlı hibrit envanter takibi yapabilmesini sağlar.
+Bu sürüm, v4.0'da kurulan WMS mimarisinin yarattığı en büyük zorluğu çözer: **dağıtık veri kaynaklarından bütünsel raporlama yapabilmek**. Ayrıca, v4.0'da tespit edilen bir performans riskini gidererek sistemi daha ölçeklenebilir hale getirir.
 
-**v4.0'ın Ana Hedefleri:**
--   **Çoklu Depo Desteği:** Tüm envanter, sipariş, tedarik ve iade operasyonlarının belirli bir depo bağlamında yürütülmesini sağlamak.
--   **Hibrit Envanter Takibi:** Ürünlerin, özelliklerine göre ya adetle ya da benzersiz seri numarasıyla (garanti, değerli ürünler vb. için) takip edilebilmesini sağlamak.
--   **Kurumsal Yetenek:** Platformu, birden fazla fiziksel lokasyonu ve daha karmaşık envanter akışlarını yönetebilecek kurumsal bir seviyeye taşımak.
+## v4.1 Yenilikleri:
+
+1.  **Dağıtık Raporlama Sorunu Çözüldü:** Artık 7+ farklı mikroservis veritabanına yayılmış olan operasyonel veriyi (satışlar, stok hareketleri vb.) merkezi bir yerde toplayan ve analiz eden yeni bir `raporlama-servisi` kuruldu.
+2.  **v4.0 Stok Optimizasyon Performans Riski Giderildi:** Sipariş oluşturma sırasındaki stok uygunluğu kontrolü, bu işin mantığının sahibi olan `Envanter-Servisi`'ne taşındı. Bu, `Siparis-Servisi` üzerindeki analiz yükünü kaldırarak performansı artırdı.
 
 ---
 
-## Mimari Konseptler (v4.0 Değişiklikleri)
+## Mimari Konseptler (v4.1 Güncellemeleri)
 
-### 1. Yeni Servis: `organizasyon-servisi`
--   **Sorumluluk:** Depolar, şubeler, şirketler gibi tüm temel organizasyonel ve yapısal verileri yönetir. Bu, `auth-servisi`'ni sadece kimlik doğrulama ve yetkilendirme ile sorumlu tutarak mimari saflığı korur.
--   **Veritabanı:** `depolar` tablosunu içerir.
+### Yeni Servis: `servisler/raporlama-servisi/`
+-   **Sorumluluk:** Bu servis, bir **Veri Ambarı (Data Warehouse)** görevi görür. Diğer servisler tarafından yayınlanan operasyonel olayları (`siparis.kargolandi` vb.) dinler, bu verileri zenginleştirir ve analiz için optimize edilmiş kendi **OLAP** veritabanına yazar.
+-   **Denormalize Veri Ambarı:** `rapor_satis_ozetleri` gibi tablolar, sorgu anında birden fazla servise JOIN atma ihtiyacını ortadan kaldırmak için kasıtlı olarak veri tekrarı içerir (örn: `depo_adi`, `urun_adi` vb.). Bu, raporların milisaniyeler içinde üretilmesini sağlar.
 
-### 2. `Envanter-Servisi`'nin Yeniden Doğuşu (Çekirdek Refaktör)
--   **Genel Stok Kalktı:** Tek bir merkezdeki `stok_adedi` ve `agirlikli_ortalama_maliyet` kavramları tamamen kaldırıldı.
--   **Depo Bazlı Stok:** `depo_stoklari` tablosu, adet bazlı ürünlerin hangi depoda kaç adet olduğunu tutar.
--   **Depo Bazlı Maliyet:** `depo_stok_maliyetleri` tablosu, Ağırlıklı Ortalama Maliyetin her depo için ayrı ayrı hesaplanmasını sağlar.
--   **Seri Numarası Takibi:** `envanter_seri_numaralari` tablosu, seri numarasıyla takip edilen her bir ürünün yaşam döngüsünü (stokta, satıldı, iade vb.) ve konumunu (depo) takip eder.
+---
 
-### 3. Operasyonel Servislerin Evrimi (Tedarik, Siparis, Iade)
-Tüm operasyonel servisler, artık işlemleri bir `depo_id` bağlamında gerçekleştirir ve ürünün `takip_yontemi`'ne göre hibrit çalışır.
+## Servisler Arası Yeni İletişim Akışları
 
--   **Tedarik:** `POST /api/depo/{depo_id}/teslimat-al/{po_id}` endpoint'i ile mal kabulü artık belirli bir depoya yapılır. Gelen ürünler adetle veya seri numarası listesiyle kabul edilebilir. `tedarik.mal_kabul_yapildi` olayı bu yeni yapıyı `Envanter-Servisi`'ne bildirir.
+### Asenkron Akış (Olay Dinleme)
+-   **`Raporlama-Servisi`'nin Olay Aboneliği:**
+    -   `siparis.kargolandi` olayını dinler -> `rapor_satis_ozetleri` tablosunu doldurur.
+    -   `tedarik.mal_kabul_yapildi` ve `iade.stoga_geri_alindi` olaylarını dinler -> `rapor_stok_hareketleri` tablosunu besler.
 
--   **Sipariş:**
-    -   **Stok Optimizasyonu:** Sipariş oluşturma süreci, önce `Envanter-Servisi`'ne (`GET /internal/stok-durumu`) danışarak siparişteki tüm ürünleri karşılayabilecek en uygun depoyu bulur ve siparişi o depoya (`atanan_depo_id`) atar.
-    -   **Depo Bazlı Sevkiyat:** Depo görevlileri, `GET /api/depo/{depo_id}/hazirlanacak-siparisler` ile sadece kendi depolarına atanmış siparişleri görür. `POST /api/depo/{depo_id}/siparis/{id}/kargoya-ver` ile kargolama işlemi yapılırken, seri nolu ürünler için taranan seri numarası doğrulanır. `siparis.kargolandi` olayı, sevkiyatın hangi depodan yapıldığını ve (varsa) hangi seri nolu ürünün çıktığını `Envanter-Servisi`'ne bildirir.
+### Senkron Akış (Performans İyileştirmesi)
+-   **`Siparis-Servisi` -> `Envanter-Servisi` Çağrısı:**
+    -   `Siparis-Servisi` artık stok optimizasyonu için `Envanter-Servisi`'ne sepetin tamamını gönderdiği yeni bir dahili API çağrısı yapar: `POST /internal/envanter/uygun-depo-bul`.
+    -   `Envanter-Servisi`, kendi veritabanında yaptığı analiz sonucunda uygun depoların bir listesini döner. Bu, analiz yükünü doğru servise taşır.
 
--   **Iade:** `POST /api/depo/{depo_id}/iade-teslim-al/{iade_id}` ile iade ürünleri belirli bir depoya kabul edilir. Ürünler, takip yöntemine göre adetle veya taranan seri numarasıyla sisteme geri alınır. `iade.stoga_geri_alindi` olayı bu bilgiyi `Envanter-Servisi`'ne iletir.
+---
 
-### 4. Servisler Arası İletişim Standardı
--   **Dahili API'ler:** Servislerin birbirleriyle anlık ve güvenli konuşması için `/internal/` öneki standartlaştırılmıştır. Örnek: `GET /internal/urun-takip-yontemi`, `GET /internal/stok-durumu`.
--   **Güncellenmiş Olaylar:** Tüm operasyonel olaylar (`tedarik.mal_kabul_yapildi`, `siparis.kargolandi`, `iade.stoga_geri_alindi`) artık `depo_id` ve hibrit ürün verilerini (adet veya seri no) içerecek şekilde güncellenmiştir.
+## API Endpoint'leri (v4.1)
+
+### Yeni Endpoint'ler
+-   `GET /api/admin/raporlar`: Tarih, depo, kategori gibi filtrelere göre satış raporlarını sunar. (Yetki: `rapor_goruntule`)
+-   `GET /api/admin/dashboard/kpi-ozet`: Dashboard için toplam ciro, kar, sipariş sayısı gibi temel metrikleri sunar.
+-   `GET /api/organizasyon/depolar`: Sistemdeki tüm depoları listeler.
+-   `POST /internal/envanter/uygun-depo-bul`: `Siparis-Servisi`'nin stok optimizasyonu için kullandığı yeni dahili endpoint.
+
+### Güncellenmiş Endpoint'ler
+-   `POST /api/odeme/baslat`: Artık stok optimizasyon mantığını kendi içinde çalıştırmak yerine `Envanter-Servisi`'ne delege eder.
+
+### Kaldırılan Endpoint'ler
+-   `GET /api/admin/raporlar` (Ana Monolith): Monolith'teki eski ve işlevsiz raporlama endpoint'i tamamen kaldırılmıştır.

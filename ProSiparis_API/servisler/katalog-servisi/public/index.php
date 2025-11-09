@@ -20,5 +20,6 @@ $router->get('/api/kategoriler', [KategoriController::class, 'listele']);
 // Sadece diğer servisler tarafından çağrılmak içindir.
 $router->get('/internal/katalog/varyantlar', [UrunController::class, 'internalVaryantlariGetir']);
 $router->get('/internal/urun-takip-yontemi', [UrunController::class, 'internalGetTakipYontemi']);
+$router->get('/internal/varyant-detaylari/{id}', [UrunController::class, 'internalGetVaryantDetaylari']);
 
 $router->dispatch();
