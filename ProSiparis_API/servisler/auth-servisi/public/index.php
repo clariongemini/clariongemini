@@ -19,5 +19,6 @@ $router->post('/api/kullanici/giris', [KullaniciController::class, 'girisYap']);
 
 // Dahili (servisler arası) rotalar
 $router->get('/internal/kullanici/{id}', [KullaniciController::class, 'dahiliKullaniciGetir']);
+$router->post('/internal/auth/dogrula', [KullaniciController::class, 'dahiliTokenDogrula']);
 
 $router->dispatch();

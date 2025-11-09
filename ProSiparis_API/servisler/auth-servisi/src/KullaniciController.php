@@ -62,6 +62,24 @@ class KullaniciController
         $this->jsonYanitGonder($sonuc);
     }
 
+    /**
+     * Dahili servis kullanımı için Bearer token doğrular.
+     * Gateway tarafından çağrılır.
+     */
+    public function dahiliTokenDogrula(Request $request): void
+    {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
+
+        if (!$authHeader || !preg_match('/^Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            $this->jsonYanitGonder(['basarili' => false, 'kod' => 401, 'mesaj' => 'Yetkilendirme token\'ı bulunamadı veya formatı yanlış.']);
+            return;
+        }
+
+        $token = $matches[1];
+        $sonuc = $this->authService->tokenDogrula($token);
+        $this->jsonYanitGonder($sonuc);
+    }
+
     private function jsonYanitGonder(array $sonuc): void
     {
         http_response_code($sonuc['kod']);
