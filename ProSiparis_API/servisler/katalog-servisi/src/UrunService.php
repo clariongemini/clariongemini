@@ -43,4 +43,18 @@ class UrunService
 
         return ['basarili' => true, 'kod' => 200, 'veri' => $fiyatlar];
     }
+
+    public function getTakipYontemiByVaryantId(int $varyantId): array
+    {
+        $sql = "SELECT u.takip_yontemi FROM urunler u JOIN urun_varyantlari uv ON u.urun_id = uv.urun_id WHERE uv.varyant_id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$varyantId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$result) {
+            return ['basarili' => false, 'kod' => 404, 'mesaj' => 'Varyant bulunamadı.'];
+        }
+
+        return ['basarili' => true, 'kod' => 200, 'veri' => ['takip_yontemi' => $result['takip_yontemi']]];
+    }
 }

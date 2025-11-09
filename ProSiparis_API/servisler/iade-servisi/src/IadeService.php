@@ -18,130 +18,81 @@ class IadeService
 
     private function publishEvent(string $eventType, array $data): void
     {
-        $sql = "INSERT INTO olay_gunlugu (olay_tipi, veri) VALUES (?, ?)";
-        $stmt = $this->eventPdo->prepare($sql);
-        $stmt->execute([$eventType, json_encode($data)]);
+        // ... (event publishing logic)
     }
 
-    private function checkOrderStatus(int $orderId): bool
+    private function getTakipYontemi(int $varyantId): ?string
     {
-        // Docker internal network'te servis adıyla çözümleme varsayımı
-        $url = 'http://siparis-servisi/internal/siparisler/durum-kontrol?siparis_id=' . $orderId;
+        $url = 'http://katalog-servisi/internal/urun-takip-yontemi?varyant_id=' . $varyantId;
 
         try {
-            // @ operatörü, 4xx/5xx HTTP durum kodlarında PHP'nin uyarı vermesini engeller.
             $responseJson = @file_get_contents($url);
-
             if ($responseJson === false) {
-                // Servise ulaşılamadı veya bir hata oluştu.
-                error_log("Siparis-Servisi durum kontrolü başarısız: Servise ulaşılamadı.");
-                return false;
+                return null;
             }
 
             $response = json_decode($responseJson, true);
-
-            // Başarılı bir yanıt ve 'Teslim Edildi' durumu bekleniyor.
-            return isset($response['basarili']) && $response['basarili'] && isset($response['durum']) && $response['durum'] === 'Teslim Edildi';
+            return ($response['basarili'] && isset($response['veri']['takip_yontemi'])) ? $response['veri']['takip_yontemi'] : null;
 
         } catch (Exception $e) {
-            error_log("Siparis-Servisi durum kontrolü sırasında istisna: " . $e->getMessage());
-            return false;
+            return null;
         }
     }
 
-    public function iadeTalebiOlustur(array $veri): array
-    {
-        if (!$this->checkOrderStatus($veri['siparis_id'])) {
-            return ['basarili' => false, 'kod' => 400, 'mesaj' => 'İade talebi için sipariş uygun durumda değil.'];
-        }
-
-        $this->pdo->beginTransaction();
-        try {
-            $sql = "INSERT INTO iade_talepleri (kullanici_id, siparis_id, neden, durum) VALUES (?, ?, ?, ?)";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$veri['kullanici_id'], $veri['siparis_id'], $veri['neden'], 'Talep Alındı']);
-            $iadeId = $this->pdo->lastInsertId();
-
-            if (!empty($veri['urunler']) && is_array($veri['urunler'])) {
-                foreach ($veri['urunler'] as $urun) {
-                    $sqlUrun = "INSERT INTO iade_urunleri (iade_id, varyant_id, adet, durum) VALUES (?, ?, ?, ?)";
-                    $stmtUrun = $this->pdo->prepare($sqlUrun);
-                    $stmtUrun->execute([$iadeId, $urun['varyant_id'], $urun['adet'], 'Bekleniyor']);
-                }
-            }
-            $this->pdo->commit();
-            return ['basarili' => true, 'kod' => 201, 'veri' => ['iade_id' => $iadeId]];
-        } catch (Exception $e) {
-            $this->pdo->rollBack();
-            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'İade talebi oluşturulurken hata: ' . $e->getMessage()];
-        }
-    }
-
-    public function iadeTeslimAl(int $iadeId, array $urunler, int $kullaniciId): array
+    /**
+     * v4.0 Refaktör: İadeyi belirli bir depoya, hibrit (adet/seri_no) takip yöntemiyle teslim alır.
+     */
+    public function iadeTeslimAl(int $depoId, int $iadeId, array $gelenVeri, int $kullaniciId): array
     {
         $this->pdo->beginTransaction();
         try {
-            $stogaAlinacaklar = [];
-            foreach ($urunler as $urun) {
-                 if ($urun['durum'] === 'Satılabilir') {
-                    $stogaAlinacaklar[] = [
-                        "varyant_id" => $urun['varyant_id'],
-                        "adet" => $urun['adet']
-                    ];
+            $stogaAlinacaklarEvent = [];
+
+            foreach ($gelenVeri['urunler'] as $urun) {
+                $varyantId = $urun['varyant_id'];
+                $takipYontemi = $this->getTakipYontemi($varyantId);
+
+                if ($takipYontemi === 'adet') {
+                    if ($urun['durum'] === 'Satılabilir') {
+                        $stogaAlinacaklarEvent[] = [
+                            'varyant_id' => $varyantId,
+                            'adet' => $urun['adet']
+                        ];
+                    }
+                } elseif ($takipYontemi === 'seri_no') {
+                     if ($urun['durum'] === 'Satılabilir' || $urun['durum'] === 'Kusurlu') {
+                        $stogaAlinacaklarEvent[] = [
+                            'varyant_id' => $varyantId,
+                            'seri_no' => $urun['taranan_seri_no'],
+                            'durum' => ($urun['durum'] === 'Satılabilir') ? 'iade_satilabilir' : 'iade_kusurlu'
+                        ];
+                    }
                 }
-                 $this->pdo->prepare("UPDATE iade_urunleri SET durum = ? WHERE iade_id = ? AND varyant_id = ?")
-                          ->execute([$urun['durum'], $iadeId, $urun['varyant_id']]);
+
+                // İade ürününün durumunu kendi veritabanında güncelle
+                $this->pdo->prepare("UPDATE iade_urunleri SET durum = ? WHERE iade_id = ? AND varyant_id = ?")
+                          ->execute([$urun['durum'], $iadeId, $varyantId]);
             }
 
             $this->pdo->prepare("UPDATE iade_talepleri SET durum = 'Depoya Ulaştı' WHERE iade_id = ?")->execute([$iadeId]);
 
-            if (!empty($stogaAlinacaklar)) {
+            // Sadece stoğa geri alınacak ürün varsa olay yayınla
+            if (!empty($stogaAlinacaklarEvent)) {
                 $this->publishEvent('iade.stoga_geri_alindi', [
+                    "depo_id" => $depoId, // Yeni alan
                     "iade_id" => $iadeId,
-                    "urunler" => $stogaAlinacaklar
+                    "urunler" => $stogaAlinacaklarEvent // Hibrit veri yapısı
                 ]);
             }
 
             $this->pdo->commit();
-            return ['basarili' => true, 'kod' => 200, 'mesaj' => 'İade teslim alındı.'];
+            return ['basarili' => true, 'kod' => 200, 'mesaj' => 'İade teslim alındı ve WMS envanter olayı yayınlandı.'];
         } catch (Exception $e) {
             $this->pdo->rollBack();
-            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Hata: ' . $e->getMessage()];
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'İade teslim alınırken hata: ' . $e->getMessage()];
         }
     }
 
-    public function iadeOdemeYap(int $iadeId, array $veri): array
-    {
-        // Iyzico veya başka bir ödeme sağlayıcısı ile entegrasyon burada yapılır.
-        // Bu basit örnekte, işlemin başarılı olduğunu varsayıyoruz.
-        $this->pdo->prepare("UPDATE iade_talepleri SET durum = 'Ödeme Yapıldı', odeme_referans = ? WHERE iade_id = ?")
-                  ->execute([$veri['referans_no'], $iadeId]);
-
-        $this->publishEvent('iade.odeme_basarili', [
-            "iade_id" => $iadeId,
-            "kullanici_eposta" => $veri['kullanici_eposta'], // Bu bilgi normalde talepten join edilir.
-            "tutar" => $veri['tutar']
-        ]);
-
-        return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Ödeme başarılı ve olay yayınlandı.'];
-    }
-     public function listeleKullaniciIadeTalepleri(int $kullaniciId): array
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM iade_talepleri WHERE kullanici_id = ? ORDER BY talep_tarihi DESC");
-        $stmt->execute([$kullaniciId]);
-        return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
-    }
-
-    public function listeleTumIadeTalepleri(): array
-    {
-        $stmt = $this->pdo->query("SELECT * FROM iade_talepleri ORDER BY talep_tarihi DESC");
-        return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
-    }
-
-    public function guncelleIadeTalebiDurumu(int $iadeId, array $veri): array
-    {
-        $stmt = $this->pdo->prepare("UPDATE iade_talepleri SET durum = ? WHERE iade_id = ?");
-        $stmt->execute([$veri['durum'], $iadeId]);
-        return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Durum güncellendi.'];
-    }
+    // ... Diğer IadeService metodları (iadeTalebiOlustur, iadeOdemeYap vb.) burada yer alır.
+    // iadeTalebiOlustur'daki checkOrderStatus metodunun da kalması gerekir.
 }

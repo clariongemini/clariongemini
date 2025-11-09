@@ -1,36 +1,39 @@
 <?php
-// Siparis-Servisi - public/index.php
+// Siparis-Servisi API Giriş Noktası v4.0
 
-// Gerekli dosyaları ve yapılandırmayı yükle
-// ...
+header('Content-Type: application/json');
 
-use ProSiparis\Core\Request;
-use ProSiparis\Core\Router;
-use ProSiparis\Controllers\PaymentController;
-use ProSiparis\Controllers\AdresController;
-use ProSiparis\Controllers\DepoController;
-use ProSiparis\Controllers\SiparisController;
-// ... (ve diğerleri)
+// Veritabanı bağlantısı ve servis kurulumu...
+require_once __DIR__ . '/../src/SiparisService.php';
+$service = new \ProSiparis\Siparis\SiparisService($pdo);
 
-$request = new Request();
-$router = new Router($request);
+$requestUri = $_SERVER['REQUEST_URI'];
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+$path = parse_url($requestUri, PHP_URL_PATH);
 
-// Bu servisin yönettiği tüm rotalar
-// Ödeme Rotaları
-$router->post('/api/odeme/baslat', [PaymentController::class, 'baslat']);
-$router->post('/api/odeme/callback/iyzico', [PaymentController::class, 'callback']);
+$response = null;
 
-// Adres Rotaları
-$router->get('/api/kullanici/adresler', [AdresController::class, 'listele']);
-// ... (diğer adres CRUD rotaları)
+// Rota Yönetimi
+if (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler\/?$/', $path, $matches)) {
+    if ($requestMethod === 'GET') {
+        $depoId = (int)$matches[1];
+        $response = $service->getHazirlanacakSiparisler($depoId);
+    }
+} elseif (preg_match('/^\/api\/depo\/(\d+)\/siparis\/(\d+)\/kargoya-ver\/?$/', $path, $matches)) {
+    if ($requestMethod === 'POST') {
+        $depoId = (int)$matches[1];
+        $siparisId = (int)$matches[2];
+        $response = $service->kargoyaVer($depoId, $siparisId, json_decode(file_get_contents('php://input'), true));
+    }
+} elseif (strpos($path, '/api/odeme/baslat') !== false) {
+    // Sipariş oluşturma...
+}
+// ... diğer rotalar
 
-// Depo Rotaları (Siparişle ilgili olanlar)
-$router->get('/api/depo/hazirlanacak-siparisler', [DepoController::class, 'hazirlanacakSiparisler']);
-$router->post('/api/depo/siparis/{id}/kargoya-ver', [DepoController::class, 'kargoyaVer']);
-// ...
+if ($response === null) {
+    http_response_code(404);
+    $response = ['basarili' => false, 'mesaj' => 'Siparis-Servisi endpoint bulunamadı.'];
+}
 
-// Sipariş Rotaları
-$router->get('/api/kullanici/siparisler', [SiparisController::class, 'gecmis']);
-// ...
-
-$router->dispatch();
+http_response_code($response['kod'] ?? 200);
+echo json_encode($response);

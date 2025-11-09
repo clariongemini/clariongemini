@@ -37,5 +37,19 @@ class UrunController
         $this->jsonYanitGonder($sonuc);
     }
 
+    public function internalGetTakipYontemi(Request $request): void
+    {
+        $queryParams = $request->getQueryParams();
+        $varyantId = $queryParams['varyant_id'] ?? null;
+
+        if (empty($varyantId)) {
+            $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'varyant_id parametresi zorunludur.']);
+            return;
+        }
+
+        $sonuc = $this->urunService->getTakipYontemiByVaryantId((int)$varyantId);
+        $this->jsonYanitGonder($sonuc);
+    }
+
     private function jsonYanitGonder(array $sonuc): void { /* ... */ }
 }

@@ -19,5 +19,6 @@ $router->get('/api/kategoriler', [KategoriController::class, 'listele']);
 // --- INTERNAL API ENDPOINTS (YENİ) ---
 // Sadece diğer servisler tarafından çağrılmak içindir.
 $router->get('/internal/katalog/varyantlar', [UrunController::class, 'internalVaryantlariGetir']);
+$router->get('/internal/urun-takip-yontemi', [UrunController::class, 'internalGetTakipYontemi']);
 
 $router->dispatch();

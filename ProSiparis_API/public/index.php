@@ -1,51 +1,51 @@
 <?php
-// API Gateway - public/index.php v3.2 (Birleştirilmiş Yapı)
+// API Gateway - public/index.php v4.0 (Düzeltilmiş Yönlendirme)
 
 $requestUri = $_SERVER['REQUEST_URI'];
-// Basit bir temizleme, gerçek uygulamada daha güvenli olmalı
 $route = strtok($requestUri, '?');
 
-// Rota gruplarını tanımla
-$authRoutes = ['/api/kullanici/giris', '/api/kullanici/kayit'];
-$katalogRoutes = ['/api/urunler', '/api/kategoriler'];
-$siparisRoutes = [
-    '/api/odeme', '/api/kullanici/adresler', '/api/kargo-secenekleri',
-    '/api/kullanici/siparisler'
-];
-$tedarikRoutes = [
-    '/api/admin/tedarikciler',
-    '/api/admin/satin-alma-siparisleri',
-    '/api/depo/beklenen-teslimatlar',
-    '/api/depo/teslimat-al'
-];
-$iadeRoutes = [
-    '/api/kullanici/iade-talebi-olustur',
-    '/api/kullanici/iade-talepleri',
-    '/api/admin/iade-talepleri',
-    '/api/depo/iade-teslim-al'
-];
+// Yönlendirme mantığı, en spesifik rotadan en genele doğru olmalıdır.
 
-// Yönlendirme mantığı
-// Not: Rota çakışmalarını önlemek için en spesifik olanlar en başa yazılır.
-if (strpos($route, '/api/depo/teslimat-al') === 0 || strpos($route, '/api/depo/beklenen-teslimatlar') === 0 || strpos($route, '/api/admin/satin-alma-siparisleri') === 0 || strpos($route, '/api/admin/tedarikciler') === 0) {
+// Depo bazlı rotalar (en spesifik olanlar)
+if (preg_match('/^\/api\/depo\/(\d+)\/teslimat-al/', $route)) {
     require __DIR__ . '/../servisler/tedarik-servisi/public/index.php';
     exit;
 }
-if (strpos($route, '/api/depo/iade-teslim-al') === 0 || strpos($route, '/api/admin/iade-talepleri') === 0 || strpos($route, '/api/kullanici/iade-talepleri') === 0 || strpos($route, '/api/kullanici/iade-talebi-olustur') === 0) {
+if (preg_match('/^\/api\/depo\/(\d+)\/iade-teslim-al/', $route)) {
     require __DIR__ . '/../servisler/iade-servisi/public/index.php';
     exit;
 }
-if (strpos($route, '/api/kullanici/siparisler') === 0 || strpos($route, '/api/kargo-secenekleri') === 0 || strpos($route, '/api/kullanici/adresler') === 0 || strpos($route, '/api/odeme') === 0) {
+if (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler/', $route) || preg_match('/^\/api\/depo\/(\d+)\/siparis\/(\d+)\/kargoya-ver/', $route)) {
     require __DIR__ . '/../servisler/siparis-servisi/public/index.php';
     exit;
 }
-if (strpos($route, '/api/urunler') === 0 || strpos($route, '/api/kategoriler') === 0) {
-    require __DIR__ . '/../servisler/katalog-servisi/public/index.php';
-    exit;
-}
-if (strpos($route, '/api/kullanici/giris') === 0 || strpos($route, '/api/kullanici/kayit') === 0) {
-    require __DIR__ . '/../servisler/auth-servisi/public/index.php';
-    exit;
+
+// Diğer servis rotaları
+$servisHaritasi = [
+    '/api/organizasyon/' => 'organizasyon-servisi',
+    '/api/admin/tedarikciler' => 'tedarik-servisi',
+    '/api/admin/satin-alma-siparisleri' => 'tedarik-servisi',
+    '/api/admin/iade-talepleri' => 'iade-servisi',
+    '/api/kullanici/iade-talepleri' => 'iade-servisi',
+    '/api/kullanici/iade-talebi-olustur' => 'iade-servisi',
+    '/api/kullanici/siparisler' => 'siparis-servisi',
+    '/api/kargo-secenekleri' => 'siparis-servisi',
+    '/api/kullanici/adresler' => 'siparis-servisi',
+    '/api/odeme' => 'siparis-servisi',
+    '/api/urunler' => 'katalog-servisi',
+    '/api/kategoriler' => 'katalog-servisi',
+    '/api/kullanici/giris' => 'auth-servisi',
+    '/api/kullanici/kayit' => 'auth-servisi'
+];
+
+foreach ($servisHaritasi as $prefix => $servisAdi) {
+    if (strpos($route, $prefix) === 0) {
+        $servisYolu = __DIR__ . '/../servisler/' . $servisAdi . '/public/index.php';
+        if (file_exists($servisYolu)) {
+            require $servisYolu;
+            exit;
+        }
+    }
 }
 
 // Kalan tüm istekler Ana Monolith'e (Legacy Core) gider.
