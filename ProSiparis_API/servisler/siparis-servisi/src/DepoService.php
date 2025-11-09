@@ -1,16 +1,21 @@
 <?php
 namespace ProSiparis\Service;
 
+require_once __DIR__ . '/../../../core/EventBusService.php';
+
 use PDO;
 use Exception;
+use ProSiparis\Core\EventBusService;
 
 class DepoService
 {
     private PDO $pdo;
+    private EventBusService $eventBus;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->eventBus = new EventBusService();
     }
 
     public function kargoyaVer(int $siparisId, array $kargoBilgileri, int $kullaniciId): array
@@ -51,9 +56,7 @@ class DepoService
 
     private function olayYayinla(string $olayTipi, array $veri): void
     {
-        $sql = "INSERT INTO olay_gunlugu (olay_tipi, veri) VALUES (?, ?)";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$olayTipi, json_encode($veri)]);
+        $this->eventBus->publish($olayTipi, $veri);
     }
 
     private function internalApiCall(string $url, string $method = 'GET', ?array $data = null): array

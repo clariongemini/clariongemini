@@ -1,45 +1,41 @@
-# ProSiparis API v5.0 - Gerçek API Gateway Servisi'ne Geçiş
+# ProSiparis API v5.1 - Gerçek Message Broker Entegrasyonu
 
-## v5.0 Yenilikleri
+## v5.1 Yenilikleri
 
-Bu sürüm, platformun en kritik altyapısal risklerinden birini çözmektedir. `public/index.php` dosyasında çalışan ve tek bir hata noktası (Single Point of Failure) oluşturan **API Gateway Simülasyonu** tamamen feshedilmiştir. Onun yerine, tüm dış trafiği karşılamak, merkezi kimlik doğrulaması yapmak ve istekleri ilgili mikroservislere yönlendirmek üzere tasarlanmış, yüksek performanslı ve bağımsız bir **Gateway-Servisi** devreye alınmıştır. Bu değişiklik, platformun giriş kapısını sağlamlaştırarak güvenilirliği ve ölçeklenebilirliği artırmaktadır.
+Bu sürüm, platformun altyapısal sağlamlaştırma fazının ikinci ve son adımını tamamlamaktadır. Asenkron iletişimi yöneten ve veritabanı üzerinde bir "hot spot" oluşturan **`olay_gunlugu` veritabanı tablosu simülasyonu** tamamen feshedilmiştir. Onun yerine, tüm servisler arası asenkron iletişim, anlık "push" bildirimleri ve garantili teslimat sağlayan, **RabbitMQ konseptini temel alan bir Message Broker mimarisine** taşınmıştır. Bu değişiklik, platformun arka plan işlemlerini daha performanslı, ölçeklenebilir ve dayanıklı (resilient) hale getirmektedir.
 
-## Mimari Konseptler (v5.0 Güncellemeleri)
+## Mimari Konseptler (v5.1 Güncellemeleri)
 
-### Yeni Servis: Gateway-Servisi
+### Yeni Mimari: "Polling" yerine "Push"
 
--   **Konum:** `servisler/gateway-servisi/`
--   **Teknoloji:** Bu servis, maksimum performans ve minimum gecikme için tasarlanmış, veritabanı bağlantısı olmayan, saf PHP tabanlı bir uygulamadır. Simüle edilmiş bir **Slim Framework** yapısı kullanır.
--   **Sorumlulukları:**
-    1.  **Merkezi Yönlendirme (Routing):** Gelen tüm HTTP isteklerini karşılar ve URI'a göre hangi mikroservise gidileceğini belirler.
-    2.  **Merkezi Kimlik Doğrulama (Authentication):** `api/kullanici/giris` gibi halka açık endpoint'ler dışındaki tüm istekler için `Authorization: Bearer <token>` başlığını kontrol eder. Token'ı `Auth-Servisi`'ne dahili bir istekle doğrulatarak merkezi bir güvenlik katmanı oluşturur.
+-   **Eski Yaklaşım (Polling):** Dinleyici servisler (`Envanter`, `Raporlama` vb.), yeni bir olay olup olmadığını anlamak için `olay_gunlugu` tablosunu periyodik olarak sorgulamak zorundaydı.
+-   **Yeni Yaklaşım (Push/Worker):** Dinleyici servislerin artık kendilerine özel "worker" (tüketici) betikleri (`consume.php`) bulunmaktadır. Bu betikler, RabbitMQ kuyruğunu sürekli dinler ve bir olay geldiği anda anlık olarak ilgili servisi tetikler.
+
+### Publisher ve Consumer Sorumlulukları
+
+-   **Publisher (Yayıncı):** Bir iş akışı sonucunda bir olay yaratan servisler (`Siparis-Servisi`, `Tedarik-Servisi` vb.), artık veritabanına kayıt atmak yerine, merkezi `EventBusService` aracılığıyla olayı RabbitMQ'ya yayınlar.
+-   **Consumer (Tüketici):** Başka servislerin yayınladığı olaylarla ilgilenen servisler (`Envanter-Servisi`, `Bildirim-Servisi` vb.), artık veritabanı sorgulamak yerine, kendi RabbitMQ kuyruklarına gelen olayları anlık olarak işler.
 
 ## Servisler Arası İletişim Akışı
 
-Dış dünyadan gelen bir isteğin platform içindeki yolculuğu artık aşağıdaki gibidir:
+**Örnek Akış:** Bir siparişin kargoya verilmesi
 
-**Örnek İstek:** `GET /api/kullanici/profil`
+1.  **Olayın Yayınlanması (Publisher):**
+    -   Bir depo çalışanı, `Siparis-Servisi`'nin bir endpoint'i üzerinden siparişi "Kargoya Verildi" olarak işaretler.
+    -   `Siparis-Servisi`, sipariş durumunu kendi veritabanında güncelledikten sonra, `EventBusService->publish('siparis.kargolandi', ...)` metodunu çağırır.
 
-1.  **Giriş Kapısı (Gateway-Servisi):**
-    -   İstek, web sunucusu tarafından doğrudan `servisler/gateway-servisi/public/index.php` dosyasına yönlendirilir.
-    -   **AuthMiddleware** devreye girer. `Authorization` başlığındaki JWT'yi alır.
-    -   Gateway, `Auth-Servisi`'nin `/internal/auth/dogrula` endpoint'ine dahili bir HTTP isteği (cURL) göndererek token'ı doğrular.
-    -   `Auth-Servisi` token'ı doğrular ve kullanıcı bilgilerini (`kullanici_id`, `rol`, `yetkiler`) Gateway'e geri döner.
-    -   Gateway, bu bilgileri isteğe `X-User-ID`, `X-Role`, `X-Permissions` gibi güvenli HTTP başlıkları olarak ekler (simülasyonda `$_SERVER` değişkenleri kullanılır).
+2.  **Mesaj Kuyruğu (RabbitMQ):**
+    -   `EventBusService`, `siparis.kargolandi` olayını merkezi "prosiparis_events" Exchange'ine gönderir.
+    -   RabbitMQ, bu olayı ilgili "routing key" (`siparis.kargolandi`) üzerinden bu olayla ilgilenen tüm kuyruklara (örn: `q_envanter`, `q_raporlama`, `q_bildirim`) kopyalar.
 
-2.  **Yönlendirme (Gateway-Servisi):**
-    -   Kimlik doğrulaması başarılı olduktan sonra, Gateway'in yönlendirme (routing) mantığı devreye girer.
-    -   `/api/kullanici/profil` URI'ının `Auth-Servisi` tarafından yönetildiğini belirler.
-
-3.  **Hedef Servis (Auth-Servisi):**
-    -   Gateway, isteği `servisler/auth-servisi/public/index.php` dosyasını `require` ederek Auth-Servisi'ne devreder.
-    -   `Auth-Servisi`, artık kimliği doğrulanmış ve yetkilendirilmiş olan bu isteği işler, `$_SERVER['HTTP_X_USER_ID']` üzerinden kullanıcı ID'sine erişir ve profil bilgilerini veritabanından alıp yanıt olarak döndürür.
+3.  **Olayın Tüketilmesi (Consumers):**
+    -   **Anlık olarak**, `Envanter-Servisi`'nin `consume.php` worker'ı `q_envanter` kuyruğundan olayı alır ve stok düşme işlemini başlatır.
+    -   **Aynı anda**, `Bildirim-Servisi`'nin `consume.php` worker'ı `q_bildirim` kuyruğundan olayı alır ve müşteriye "Siparişiniz Kargolandı" e-postasını gönderir.
+    -   **Yine aynı anda**, `Raporlama-Servisi`'nin `consume.php` worker'ı `q_raporlama` kuyruğundan olayı alır ve satış özet tablosunu günceller.
 
 ## Kaldırılan Bileşenler
 
-v5.0 yükseltmesiyle birlikte aşağıdaki eski bileşenler projeden tamamen kaldırılmıştır:
+v5.1 yükseltmesiyle birlikte aşağıdaki eski bileşenler projeden tamamen kaldırılmıştır:
 
--   **`ProSiparis_API/public/index.php` (v4.3 Simülatörü):** Tüm yönlendirme ve karşılama mantığını yürüten eski API Gateway simülatörü.
--   **`ProSiparis_API/config/` Dizini:** Eski veritabanı bağlantıları ve ayar dosyalarını içeren klasör.
-
-Projenin kök dizini artık kod içermeyen, sadece `servisler/` klasörünü ve genel proje dosyalarını barındıran bir "meta-proje" haline gelmiştir.
+-   **`olay_gunlugu` Tablosu:** Tüm asenkron iletişimi yöneten merkezi veritabanı tablosu ve bu tabloya ait tüm `INSERT` ve `SELECT` sorguları kod tabanından temizlenmiştir.
+-   **Polling Kodları:** Dinleyici servislerin içinde bulunan ve periyodik olarak `olay_gunlugu` tablosunu sorgulayan tüm eski "cron-like" mantıklar kaldırılmıştır.
