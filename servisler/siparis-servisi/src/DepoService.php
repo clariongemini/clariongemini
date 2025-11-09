@@ -25,12 +25,17 @@ class DepoService
                 throw new Exception("Güncellenecek sipariş bulunamadı.");
             }
 
+            // E-posta için kullanıcı bilgisini al
+            $kullaniciApiUrl = "http://localhost/ProSiparis_API/servisler/auth-servisi/public/internal/kullanici/" . $kullaniciId;
+            $kullaniciVerisi = $this->internalApiCall($kullaniciApiUrl);
+            $kullaniciEposta = $kullaniciVerisi['veri']['eposta'];
+
             // Olayı yayınla
             $siparisDetaylari = $this->pdo->query("SELECT * FROM siparis_detaylari WHERE siparis_id = $siparisId")->fetchAll(PDO::FETCH_ASSOC);
             $this->olayYayinla('siparis.kargolandi', [
                 'siparis_id' => $siparisId,
-                'kullanici_id' => $kullaniciId, // Bu bilgi sipariş tablosundan da alınabilir
-                'kullanici_eposta' => '... eposta bilgisi ...',
+                'kullanici_id' => $kullaniciId,
+                'kullanici_eposta' => $kullaniciEposta,
                 'kargo_firmasi' => $kargoBilgileri['firma'],
                 'takip_kodu' => $kargoBilgileri['takip_kodu'],
                 'urunler' => $siparisDetaylari
@@ -49,6 +54,30 @@ class DepoService
         $sql = "INSERT INTO olay_gunlugu (olay_tipi, veri) VALUES (?, ?)";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$olayTipi, json_encode($veri)]);
+    }
+
+    private function internalApiCall(string $url, string $method = 'GET', ?array $data = null): array
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        }
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode >= 400) {
+            throw new Exception("Dahili API çağrısı başarısız oldu: $url - HTTP $httpCode - Yanıt: $response");
+        }
+        $decoded = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception("Dahili API'den gelen yanıt JSON formatında değil.");
+        }
+        return $decoded;
     }
 
     // ... (diğer depo metodları)
