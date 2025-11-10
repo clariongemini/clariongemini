@@ -11,6 +11,13 @@ $requestUri = $_SERVER['REQUEST_URI'];
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($requestUri, PHP_URL_PATH);
 
+// v5.2 robots.txt için özel rota
+if ($path === '/robots.txt' && $requestMethod === 'GET') {
+    $service->getRobotsTxt(); // Bu metod doğrudan içeriği basıp çıkacak
+    exit;
+}
+
+header('Content-Type: application/json');
 $response = null;
 
 // Public Rotalar
@@ -22,10 +29,19 @@ if ($path === '/api/bannerlar' && $requestMethod === 'GET') {
     }
 }
 // Admin Rotaları
+elseif ($path === '/api/admin/site-ayarlari/robots' && $requestMethod === 'PUT') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $response = $service->updateRobotsTxt($data['icerik'] ?? '');
+}
 elseif ($path === '/api/admin/sayfalar' && $requestMethod === 'GET') {
     $response = $service->listeleSayfalar();
 }
 // ... Diğer Admin CRUD rotaları
+
+// v5.2 Dahili Rota
+elseif ($path === '/internal/sayfa-sluglari' && $requestMethod === 'GET') {
+    $response = $service->listeleSayfaSluglari();
+}
 
 if ($response === null) {
     http_response_code(404);

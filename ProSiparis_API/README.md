@@ -1,41 +1,51 @@
-# ProSiparis API v5.1 - Gerçek Message Broker Entegrasyonu
+# ProSiparis API v5.2 - Pazarlanabilirlik & SEO Motoru
 
-## v5.1 Yenilikleri
+## v5.2 Yenilikleri
 
-Bu sürüm, platformun altyapısal sağlamlaştırma fazının ikinci ve son adımını tamamlamaktadır. Asenkron iletişimi yöneten ve veritabanı üzerinde bir "hot spot" oluşturan **`olay_gunlugu` veritabanı tablosu simülasyonu** tamamen feshedilmiştir. Onun yerine, tüm servisler arası asenkron iletişim, anlık "push" bildirimleri ve garantili teslimat sağlayan, **RabbitMQ konseptini temel alan bir Message Broker mimarisine** taşınmıştır. Bu değişiklik, platformun arka plan işlemlerini daha performanslı, ölçeklenebilir ve dayanıklı (resilient) hale getirmektedir.
+Bu sürüm, platformun sağlam altyapısı üzerine ilk büyük "iş değeri" katmanını eklemektedir. v5.2, platformu Google/Bing gibi arama motorlarında **"bulunabilir"** (teknik SEO, sitemap, `robots.txt`) ve dijital pazarlama kanallarında **"reklamlanabilir"** (Google Merchant, Bing Shopping XML feed'leri) hale getiren kapsamlı bir "Pazarlanabilirlik ve SEO Motoru" entegrasyonu sunmaktadır. Ayrıca, üçüncü parti entegrasyonların API anahtarlarını yönetmek için merkezi ve güvenli bir "Anahtar Kasası" sunar.
 
-## Mimari Konseptler (v5.1 Güncellemeleri)
+## Mimari Konseptler (v5.2 Güncellemeleri)
 
-### Yeni Mimari: "Polling" yerine "Push"
+### Katalog-Servisi: Pazarlama Verisi ile Zenginleştirme
 
--   **Eski Yaklaşım (Polling):** Dinleyici servisler (`Envanter`, `Raporlama` vb.), yeni bir olay olup olmadığını anlamak için `olay_gunlugu` tablosunu periyodik olarak sorgulamak zorundaydı.
--   **Yeni Yaklaşım (Push/Worker):** Dinleyici servislerin artık kendilerine özel "worker" (tüketici) betikleri (`consume.php`) bulunmaktadır. Bu betikler, RabbitMQ kuyruğunu sürekli dinler ve bir olay geldiği anda anlık olarak ilgili servisi tetikler.
+-   `urunler`, `kategoriler` ve `urun_varyantlari` tabloları, modern pazarlama ihtiyaçlarını karşılamak üzere ciddi şekilde zenginleştirilmiştir.
+-   **SEO & Sosyal Medya:** `meta_baslik`, `meta_aciklama`, `slug`, `canonical_url` ve `og_resim_url` gibi sütunlar, arama motoru optimizasyonu ve sosyal medya paylaşım standartları için eklenmiştir.
+-   **Alışveriş Reklamları (Merchant Feeds):** Google Shopping ve Bing Shopping için zorunlu olan `gtin` (barkod), `mpn` (üretici parça no) ve `marka` gibi sütunlar eklenerek, platformun ürün reklamı yayınlama yeteneği kazandırılmıştır.
 
-### Publisher ve Consumer Sorumlulukları
+### Organizasyon-Servisi: API Anahtar Kasası
 
--   **Publisher (Yayıncı):** Bir iş akışı sonucunda bir olay yaratan servisler (`Siparis-Servisi`, `Tedarik-Servisi` vb.), artık veritabanına kayıt atmak yerine, merkezi `EventBusService` aracılığıyla olayı RabbitMQ'ya yayınlar.
--   **Consumer (Tüketici):** Başka servislerin yayınladığı olaylarla ilgilenen servisler (`Envanter-Servisi`, `Bildirim-Servisi` vb.), artık veritabanı sorgulamak yerine, kendi RabbitMQ kuyruklarına gelen olayları anlık olarak işler.
+-   Üçüncü parti API anahtarlarının (`iyzico`, `google_analytics` vb.) kod içinde veya yapılandırma dosyalarında güvenli olmayan bir şekilde saklanmasını önlemek için `Organizasyon-Servisi`'ne merkezi bir "API Anahtar Kasası" eklenmiştir.
+-   `entegrasyon_anahtarlari` adlı yeni bir tablo, anahtar değerlerini `openssl` ile şifreleyerek veritabanında saklar.
+-   Diğer servisler artık bu anahtarlara ihtiyaç duyduğunda, `Organizasyon-Servisi`'ne güvenli bir dahili API çağrısı (`/internal/organizasyon/anahtar-al`) yaparak ihtiyaç duydukları anahtarı anlık olarak alırlar.
 
-## Servisler Arası İletişim Akışı
+## Servisler Arası Yeni İletişim Akışları
 
-**Örnek Akış:** Bir siparişin kargoya verilmesi
+### Dinamik Site Haritası Oluşturma (`GET /sitemap.xml`)
 
-1.  **Olayın Yayınlanması (Publisher):**
-    -   Bir depo çalışanı, `Siparis-Servisi`'nin bir endpoint'i üzerinden siparişi "Kargoya Verildi" olarak işaretler.
-    -   `Siparis-Servisi`, sipariş durumunu kendi veritabanında güncelledikten sonra, `EventBusService->publish('siparis.kargolandi', ...)` metodunu çağırır.
+1.  İstek, `Gateway-Servisi` tarafından `Katalog-Servisi`'ne yönlendirilir.
+2.  `Katalog-Servisi`, kendi veritabanından tüm `urunler` ve `kategoriler` için `slug` (URL) listesini çeker.
+3.  `Katalog-Servisi`, `CMS-Servisi`'ne `/internal/cms/sayfa-sluglari` gibi bir dahili API çağrısı yaparak tüm statik `sayfalar`ın `slug` listesini alır.
+4.  Topladığı tüm URL'leri standart bir XML site haritası formatında birleştirir ve kullanıcıya sunar.
 
-2.  **Mesaj Kuyruğu (RabbitMQ):**
-    -   `EventBusService`, `siparis.kargolandi` olayını merkezi "prosiparis_events" Exchange'ine gönderir.
-    -   RabbitMQ, bu olayı ilgili "routing key" (`siparis.kargolandi`) üzerinden bu olayla ilgilenen tüm kuyruklara (örn: `q_envanter`, `q_raporlama`, `q_bildirim`) kopyalar.
+### Google Merchant Feed Oluşturma (`GET /api/feeds/google-merchant.xml`)
 
-3.  **Olayın Tüketilmesi (Consumers):**
-    -   **Anlık olarak**, `Envanter-Servisi`'nin `consume.php` worker'ı `q_envanter` kuyruğundan olayı alır ve stok düşme işlemini başlatır.
-    -   **Aynı anda**, `Bildirim-Servisi`'nin `consume.php` worker'ı `q_bildirim` kuyruğundan olayı alır ve müşteriye "Siparişiniz Kargolandı" e-postasını gönderir.
-    -   **Yine aynı anda**, `Raporlama-Servisi`'nin `consume.php` worker'ı `q_raporlama` kuyruğundan olayı alır ve satış özet tablosunu günceller.
+1.  İstek, `Gateway-Servisi` tarafından `Katalog-Servisi`'ne yönlendirilir.
+2.  `Katalog-Servisi`, kendi veritabanından ürünlerin `gtin`, `marka`, `fiyat` gibi tüm pazarlama ve temel bilgilerini çeker.
+3.  `Katalog-Servisi`, her bir ürünün stok durumunu öğrenmek için `Envanter-Servisi`'ne `/internal/envanter/stok-durumu` gibi bir dahili API çağrısı yapar.
+4.  Topladığı tüm zenginleştirilmiş veriyi, Google Merchant standartlarına uygun bir XML formatında birleştirir ve sunar.
 
-## Kaldırılan Bileşenler
+## API Endpoint'leri (v5.2)
 
-v5.1 yükseltmesiyle birlikte aşağıdaki eski bileşenler projeden tamamen kaldırılmıştır:
+### Yeni PUBLIC Endpoint'ler
 
--   **`olay_gunlugu` Tablosu:** Tüm asenkron iletişimi yöneten merkezi veritabanı tablosu ve bu tabloya ait tüm `INSERT` ve `SELECT` sorguları kod tabanından temizlenmiştir.
--   **Polling Kodları:** Dinleyici servislerin içinde bulunan ve periyodik olarak `olay_gunlugu` tablosunu sorgulayan tüm eski "cron-like" mantıklar kaldırılmıştır.
+-   `GET /sitemap.xml`: Dinamik olarak oluşturulan site haritası.
+-   `GET /robots.txt`: Yönetici panelinden güncellenebilen `robots.txt` içeriği.
+-   `GET /api/feeds/google-merchant.xml`: Google Alışveriş reklamları için ürün veri feed'i.
+-   `GET /api/feeds/bing-shopping.xml`: Bing Alışveriş reklamları için ürün veri feed'i.
+
+### Yeni ADMIN Endpoint'ler
+
+-   `PUT /api/admin/site-ayarlari/robots`: `robots.txt` içeriğini günceller. (Yetki: `cms_yonet`)
+-   `GET /api/admin/entegrasyonlar`: Kayıtlı tüm entegrasyon anahtarlarını listeler. (Yetki: `organizasyon_yonet`)
+-   `POST /api/admin/entegrasyonlar`: Yeni bir entegrasyon anahtarı ekler. (Yetki: `organizasyon_yonet`)
+-   `DELETE /api/admin/entegrasyonlar/{id}`: Bir entegrasyon anahtarını siler. (Yetki: `organizasyon_yonet`)

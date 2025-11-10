@@ -33,4 +33,38 @@ class CmsService
     }
 
     // ... Diğer CRUD metodları (olustur/guncelle/sil) buraya eklenecek.
+
+    /**
+     * v5.2: robots.txt içeriğini veritabanından alır ve basar.
+     */
+    public function getRobotsTxt(): void
+    {
+        $stmt = $this->pdo->prepare("SELECT ayar_degeri FROM site_ayarlari WHERE ayar_anahtari = 'robots_txt_icerigi'");
+        $stmt->execute();
+        $icerik = $stmt->fetchColumn();
+
+        header("Content-Type: text/plain; charset=utf-8");
+        echo $icerik ?: ''; // Değer yoksa boş string bas
+    }
+
+    /**
+     * v5.2: robots.txt içeriğini günceller.
+     */
+    public function updateRobotsTxt(string $icerik): array
+    {
+        $sql = "UPDATE site_ayarlari SET ayar_degeri = ? WHERE ayar_anahtari = 'robots_txt_icerigi'";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$icerik]);
+
+        return ['basarili' => true, 'kod' => 200, 'mesaj' => 'robots.txt başarıyla güncellendi.'];
+    }
+
+    /**
+     * v5.2: Dahili kullanım için tüm sayfaların slug'larını listeler.
+     */
+    public function listeleSayfaSluglari(): array
+    {
+        $stmt = $this->pdo->query("SELECT slug FROM sayfalar");
+        return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+    }
 }

@@ -39,6 +39,24 @@ if (preg_match('/^\/api\/organizasyon\/depolar\/?$/', $path)) {
         $response = $service->silDepo($id);
     }
 }
+// v5.2 API Anahtar Kasası Rotaları
+elseif (preg_match('/^\/api\/admin\/entegrasyonlar\/?$/', $path)) {
+    if ($requestMethod === 'GET') {
+        $response = $service->listeleAnahtarlar();
+    } elseif ($requestMethod === 'POST') {
+        $response = $service->olusturAnahtar(json_decode(file_get_contents('php://input'), true));
+    }
+} elseif (preg_match('/^\/api\/admin\/entegrasyonlar\/(\d+)\/?$/', $path, $matches)) {
+    $id = (int)$matches[1];
+    if ($requestMethod === 'DELETE') {
+        $response = $service->silAnahtar($id);
+    }
+} elseif (preg_match('/^\/internal\/organizasyon\/anahtar-al\/?$/', $path) && $requestMethod === 'GET') {
+    // Örnek: /internal/organizasyon/anahtar-al?servis=iyzico&anahtar=api_key
+    $servis = $_GET['servis'] ?? null;
+    $anahtar = $_GET['anahtar'] ?? null;
+    $response = $service->getAnahtar($servis, $anahtar);
+}
 
 if ($response === null) {
     http_response_code(404);
