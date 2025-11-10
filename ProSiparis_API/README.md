@@ -51,3 +51,16 @@ Bu sürüm, ProSiparis platformunda tamamen yeni bir fazı başlatmaktadır: **F
 
 -   Bu sürümde yeni bir Backend API endpoint'i **eklenmemiştir**.
 -   Yönetim Paneli, v6.1 ve önceki sürümlerde geliştirilmiş olan mevcut `Auth-Servisi` ve `Raporlama-Servisi` endpoint'lerini kullanmaktadır.
+
+---
+
+# ProSiparis API v7.1 - Yönetim Paneli (Faz 2: Ürün Yönetimi)
+
+Bu sürüm, ProSiparis Yönetim Paneli'ne (Admin UI) ilk ve en kritik "yazma" (CRUD - Create, Read, Update, Delete) yeteneğini kazandırır. Artık yöneticiler, doğrudan kullanıcı arayüzü üzerinden Katalog-Servisi'ndeki ürünleri listeleyebilir, oluşturabilir, güncelleyebilir ve silebilir.
+
+## v7.1 Yenilikleri
+
+- **İlk CRUD Modülü:** Yönetim Paneli'ne, platformun ticari kalbi olan **Ürün Yönetimi** modülü eklendi. Bu, paneli salt okunur bir "gösterge paneli" olmaktan çıkarıp, gerçek bir yönetim aracına dönüştüren ilk adımdır.
+- **Gelişmiş Veri Tablosu:** Ürünleri listelemek için güçlü ve esnek bir bileşen olan **MUI DataGrid** entegre edildi.
+- **Dinamik Form Yönetimi:** Hem "Ürün Oluşturma" hem de "Ürün Düzenleme" işlemlerini yöneten dinamik bir form sayfası oluşturuldu.
+- **Kullanılan API'ler:** Bu geliştirme, Katalog-Servisi'nin mevcut `/api/admin/urunler` CRUD endpoint'lerini kullanmıştır. Yeni bir backend endpoint'i oluşturulmamıştır.

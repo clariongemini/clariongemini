@@ -3,10 +3,14 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import { ThemeProvider } from '@mui/material/styles';
+import ProductListPage from './pages/ProductListPage';
+import ProductEditPage from './pages/ProductEditPage'; // Yeni eklendi
+import { ThemeProvider, Typography } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+
 
 // AppContent, tema context'ine erişebilmek için ayrı bir bileşen olmalı
 const AppContent = () => {
@@ -21,7 +25,9 @@ const AppContent = () => {
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              {/* Diğer korumalı rotalar buraya eklenecek */}
+              <Route path="/admin/urunler" element={<ProductListPage />} />
+              <Route path="/admin/urunler/yeni" element={<ProductEditPage />} />
+              <Route path="/admin/urunler/:urunId/duzenle" element={<ProductEditPage />} />
             </Route>
         </Route>
       </Routes>

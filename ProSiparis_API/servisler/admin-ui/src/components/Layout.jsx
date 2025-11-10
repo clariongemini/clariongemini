@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link as RouterLink } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 import ThemeToggleButton from './ThemeToggleButton';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,12 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             ProSiparis Yönetim Paneli
           </Typography>
+          <Button color="inherit" component={RouterLink} to="/">
+            Dashboard
+          </Button>
+          <Button color="inherit" component={RouterLink} to="/admin/urunler">
+            Ürünler
+          </Button>
           <ThemeToggleButton />
           <Button color="inherit" onClick={logout} sx={{ ml: 2 }}>
             Çıkış Yap
