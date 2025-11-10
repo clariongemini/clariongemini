@@ -35,15 +35,23 @@ class DepoService
             $kullaniciVerisi = $this->internalApiCall($kullaniciApiUrl);
             $kullaniciEposta = $kullaniciVerisi['veri']['eposta'];
 
-            // Olayı yayınla
+            // Olayı yayınla - v6.1 Zengin Olay
             $siparisDetaylari = $this->pdo->query("SELECT * FROM siparis_detaylari WHERE siparis_id = $siparisId")->fetchAll(PDO::FETCH_ASSOC);
+            $zenginUrunler = $this->urunDetaylariniZenginlestir($siparisDetaylari);
+
+            // Depo adını da ekleyelim (Bu metodun depoId'yi de alması gerekir, şimdilik varsayalım)
+            $depoId = $kargoBilgileri['depo_id'] ?? 1;
+            $depoDetaylari = $this->internalApiCall("http://organizasyon-servisi/api/organizasyon/depolar/{$depoId}");
+
             $this->olayYayinla('siparis.kargolandi', [
                 'siparis_id' => $siparisId,
                 'kullanici_id' => $kullaniciId,
                 'kullanici_eposta' => $kullaniciEposta,
                 'kargo_firmasi' => $kargoBilgileri['firma'],
                 'takip_kodu' => $kargoBilgileri['takip_kodu'],
-                'urunler' => $siparisDetaylari
+                'depo_id' => $depoId,
+                'depo_adi' => $depoDetaylari['veri']['depo_adi'] ?? null,
+                'urunler' => $zenginUrunler // Zenginleştirilmiş ürün listesi
             ]);
 
             $this->pdo->commit();
@@ -84,4 +92,28 @@ class DepoService
     }
 
     // ... (diğer depo metodları)
+
+    private function urunDetaylariniZenginlestir(array $urunler): array
+    {
+        $varyantIds = array_column($urunler, 'varyant_id');
+        if (empty($varyantIds)) {
+            return $urunler;
+        }
+
+        $idString = implode(',', $varyantIds);
+        $katalogVerisi = $this->internalApiCall("http://katalog-servisi/internal/varyant-detaylari?ids={$idString}");
+
+        $zenginUrunler = [];
+        foreach ($urunler as $urun) {
+            $urunId = $urun['varyant_id'];
+            if (isset($katalogVerisi[$urunId])) {
+                $urun['urun_adi'] = $katalogVerisi[$urunId]['urun_adi'];
+                $urun['varyant_sku'] = $katalogVerisi[$urunId]['varyant_sku'];
+                $urun['kategori_adi'] = $katalogVerisi[$urunId]['kategori_adi'];
+            }
+            $zenginUrunler[] = $urun;
+        }
+
+        return $zenginUrunler;
+    }
 }

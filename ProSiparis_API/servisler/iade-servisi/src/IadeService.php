@@ -97,4 +97,52 @@ class IadeService
 
     // ... Diğer IadeService metodları (iadeTalebiOlustur, iadeOdemeYap vb.) burada yer alır.
     // iadeTalebiOlustur'daki checkOrderStatus metodunun da kalması gerekir.
+
+    public function iadeOdemeYap(int $iadeId, float $tutar): array
+    {
+        $this->pdo->beginTransaction();
+        try {
+            // İade talebi bilgilerini al (kullanici_id için)
+            $stmt = $this->pdo->prepare("SELECT kullanici_id FROM iade_talepleri WHERE iade_id = ?");
+            $stmt->execute([$iadeId]);
+            $iade = $stmt->fetch();
+
+            if (!$iade) {
+                throw new Exception("İade talebi bulunamadı.");
+            }
+
+            // Ödeme işlemini simüle et ve durumu güncelle
+            $this->pdo->prepare("UPDATE iade_talepleri SET durum = 'Ödeme Tamamlandı', odeme_tutari = ? WHERE iade_id = ?")
+                      ->execute([$tutar, $iadeId]);
+
+            // E-posta için kullanıcı bilgisini al
+            $kullaniciVerisi = $this->internalApiCall("http://auth-servisi/internal/kullanici/{$iade['kullanici_id']}");
+            $kullaniciEposta = $kullaniciVerisi['eposta'] ?? null;
+
+            // Zengin olayı yayınla
+            $this->publishEvent('iade.odeme_basarili', [
+                'iade_id' => $iadeId,
+                'kullanici_id' => $iade['kullanici_id'],
+                'kullanici_eposta' => $kullaniciEposta,
+                'odenen_tutar' => $tutar
+            ]);
+
+            $this->pdo->commit();
+            return ['basarili' => true, 'kod' => 200, 'mesaj' => 'İade ödemesi başarıyla tamamlandı.'];
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'İade ödemesi sırasında hata: ' . $e->getMessage()];
+        }
+    }
+
+    private function internalApiCall(string $url): ?array
+    {
+        $responseJson = @file_get_contents($url);
+        if ($responseJson === false) {
+            error_log("Dahili Iade Servisi API çağrısı başarısız oldu: $url");
+            return null;
+        }
+        $response = json_decode($responseJson, true);
+        return ($response && isset($response['basarili']) && $response['basarili']) ? $response['veri'] : null;
+    }
 }

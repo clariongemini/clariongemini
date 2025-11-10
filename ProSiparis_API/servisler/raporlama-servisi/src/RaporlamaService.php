@@ -35,39 +35,26 @@ class RaporlamaService
 
     private function satisOzetiniIsle(array $veri): void
     {
-        $depoDetaylari = $this->getDepoDetaylari($veri['depo_id']);
+        // v6.1: Zengin olaydan gelen verileri doğrudan kullan
+        $depoAdi = $veri['depo_adi'] ?? null;
 
         foreach ($veri['urunler'] as $urun) {
-            $urunDetaylari = $this->getUrunDetaylari($urun['varyant_id']);
             $adet = $urun['adet'] ?? 1;
 
             $sql = "INSERT INTO rapor_satis_ozetleri (siparis_id, siparis_tarihi, depo_id, depo_adi, urun_adi, varyant_sku, kategori_adi, musteri_id, adet, birim_fiyat, birim_maliyet) VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $this->pdo->prepare($sql)->execute([
-                $veri['siparis_id'], $veri['depo_id'],
-                $depoDetaylari['depo_adi'] ?? null,
-                $urunDetaylari['urun_adi'] ?? null,
-                $urunDetaylari['varyant_sku'] ?? null,
-                $urunDetaylari['kategori_adi'] ?? null,
+                $veri['siparis_id'],
+                $veri['depo_id'],
+                $depoAdi,
+                $urun['urun_adi'] ?? null,
+                $urun['varyant_sku'] ?? null,
+                $urun['kategori_adi'] ?? null,
                 $veri['kullanici_id'] ?? null,
                 $adet,
-                $urun['birim_fiyat'] ?? 0.00, // Bu verilerin olayda olması gerekir
-                $urun['maliyet_fiyati'] ?? 0.00 // Bu verilerin olayda olması gerekir
+                $urun['birim_fiyat'] ?? 0.00,
+                $urun['maliyet_fiyati'] ?? 0.00 // Bu verinin de olayda olması beklenir
             ]);
         }
-    }
-
-    private function getDepoDetaylari(int $depoId): array
-    {
-        $url = "http://organizasyon-servisi/api/organizasyon/depolar/" . $depoId;
-        $response = @json_decode(file_get_contents($url), true);
-        return ($response && $response['basarili']) ? $response['veri'] : [];
-    }
-
-    private function getUrunDetaylari(int $varyantId): array
-    {
-        $url = "http://katalog-servisi/internal/varyant-detaylari/" . $varyantId;
-        $response = @json_decode(file_get_contents($url), true);
-        return ($response && $response['basarili']) ? $response['veri'] : [];
     }
 
     public function getSatisRaporu(array $filtreler): array

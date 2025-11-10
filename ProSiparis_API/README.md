@@ -1,48 +1,35 @@
-# ProSiparis API v6.0 - AI Alışveriş Asistanı (Faz-1)
+# ProSiparis API v6.1 - Mimari Mükemmelleştirme: Zengin Olaylar
 
-## v6.0 Yenilikleri
+## v6.1 Yenilikleri
 
-Bu sürüm, platformun sağlam altyapısı üzerine inşa edilen ilk "katil özelliği" (killer feature) sunmaktadır: **Gemini tabanlı AI Alışveriş Asistanı**. Bu özellik, müşterilerin artık standart arama kutuları yerine, "doğal dil" kullanarak ürün aramasına, karmaşık sorular sormasına ve canlı stok/fiyat verilerine dayalı kişiselleştirilmiş ürün önerileri almasına olanak tanır. Bu, müşteri deneyimini temelden dönüştürerek platformu standart bir e-ticaret motorundan akıllı bir "alışveriş partneri" haline getirir.
+Bu sürüm, platformun altyapısındaki son "teknik borcu" temizleyerek mimariyi mükemmelleştirmeye odaklanmaktadır. v6.1, "Zengin Olaylar" (Rich Events) ve "Tüketici Bağımsızlığı" (Consumer Independence) prensiplerini hayata geçirir. Artık, bir olayı yayınlayan servis (Publisher), o olayla ilgilenebilecek tüm servislerin (Consumer) ihtiyaç duyabileceği **tüm zenginleştirilmiş veriyi** (örneğin sadece `urun_id` değil, aynı zamanda `urun_adi`, `sku`, `kategori_adi` vb.) olayın içeriğine (payload) eklemekle sorumludur. Bu değişiklik, tüketici servislerin veri toplamak için başka servislere anlık (senkron) çağrılar yapma ihtiyacını ortadan kaldırarak platformun genel dayanıklılığını (resilience) ve performansını artırır.
 
-## Mimari Konseptler (v6.0 Güncellemeleri)
+## Mimari Konseptler (v6.1 Güncellemeleri)
 
-### Yeni Servis: AI-Asistan-Servisi
+### Zengin Olay (Rich Event) Prensibi
 
--   **Konum:** `servisler/ai-asistan-servisi/`
--   Bu yeni servis, AI ile ilgili tüm mantığın merkezidir. Hem asenkron "öğrenme" (vektör veritabanını besleme) hem de senkron "yanıtlama" (müşteri sorularını işleme) görevlerini yönetir.
+-   **Eski Yaklaşım:** Olaylar, sadece temel ID'leri (`urun_id`, `depo_id`) içeriyordu. Bir olayı tüketen servis (`Raporlama-Servisi` gibi), bu ID'leri kullanarak ihtiyaç duyduğu diğer bilgileri (`urun_adi`, `depo_adi`) ilgili servislere anlık API çağrıları yaparak "zenginleştirmek" zorundaydı. Bu, tüketicileri diğer servislere bağımlı kılıyordu.
+-   **Yeni Yaklaşım (v6.1):** Olayı yayınlayan servis, olayı yayınlamadan hemen önce gerekli tüm dahili API çağrılarını yaparak olayın içeriğini zenginleştirir. Örneğin, `Siparis-Servisi` artık `siparis.kargolandi` olayını yayınlarken `urun_adi`, `varyant_sku`, `kategori_adi` ve `depo_adi` gibi bilgileri de payload'a ekler.
 
-### AI'ın "Beyni": Vektör Veritabanı ve Asenkron Besleme
+### Tüketici Bağımsızlığı (Consumer Independence)
 
--   **Vektör Veritabanı:** `AI-Asistan-Servisi`, `urun_vektorleri` adında bir tablo yönetir. Bu tablo, ürünlerin metinsel verilerinin (isim, açıklama vb.) anlamsal (semantik) bir temsilini tutan "vektörleri" (embedding'ler) içerir.
--   **Asenkron Besleme:** `Katalog-Servisi`'nde bir ürün yaratıldığında veya güncellendiğinde, `katalog.urun.guncellendi` gibi bir olay anında Message Broker'a (RabbitMQ) yayınlanır. `AI-Asistan-Servisi`'nin "worker" betiği bu olayı dinler, ürün metinlerini Gemini Embedding API'si ile vektöre dönüştürür ve kendi veritabanını günceller. Bu sayede, AI'ın "bilgisi" her zaman katalogla güncel kalır.
+-   Bu mimarinin doğal bir sonucu olarak, `Raporlama-Servisi` ve `Bildirim-Servisi` gibi tüketiciler artık tamamen bağımsızdır. Bir olayı işlemek için ihtiyaç duydukları tüm bilgi, aldıkları olayın içinde mevcuttur.
+-   **Sonuç:** `Katalog-Servisi` veya `Organizasyon-Servisi` anlık olarak hizmet veremese bile, `Raporlama-Servisi` olayları işlemeye devam edebilir. Bu, sistemin genel dayanıklılığını ve servisler arası izolasyonu en üst seviyeye çıkarır.
 
-### AI'ın "Ağzı": 2 Adımlı Soru Yanıtlama Mimarisi
+## Güncellenmiş Servisler Arası İletişim Akışı
 
-`POST /api/asistan/soru-sor` endpoint'i tetiklendiğinde, AI-Asistan-Servisi aşağıdaki 2 adımlı AI akışını çalıştırır:
+### Asenkron Akış (Zengin Olay ile)
 
-1.  **Anlamsal Arama (Vector Search):** Müşterinin doğal dildeki sorusu ("kırmızı, kapüşonlu...") önce bir "soru vektörüne" dönüştürülür. Ardından, bu soru vektörüne "anlamsal olarak" en çok benzeyen ürünler, vektör veritabanından bulunur.
-2.  **Canlı Veri Zenginleştirme + LLM Cevap Üretme:** Anlamsal olarak bulunan ürünlerin (`varyant_id`'leri) canlı verileri (stok, fiyat, resim vb.) `Katalog-Servisi` ve `Envanter-Servisi`'ne yapılan anlık dahili API çağrıları ile toplanır. Son olarak, müşterinin sorusu ve bulunan canlı ürün verileri, Gemini Chat API'sine tek bir "prompt" içinde gönderilir. Gemini, bu bilgileri kullanarak müşteriye doğal, akıcı ve bilgilendirici bir cevap metni üretir.
+**Örnek:** Bir siparişin kargoya verilmesi
 
-## Servisler Arası Yeni İletişim Akışları
+1.  **Olayın Zenginleştirilmesi ve Yayınlanması (Publisher - `Siparis-Servisi`):**
+    -   `Siparis-Servisi`, `siparis.kargolandi` olayını hazırlarken, siparişteki `varyant_id`'ler için `Katalog-Servisi`'ne ve `depo_id` için `Organizasyon-Servisi`'ne **kendi içinde** dahili API çağrıları yapar.
+    -   Topladığı tüm bu zengin veriyi (`urun_adi`, `depo_adi` vb.) olayın payload'una ekler ve Message Broker'a (RabbitMQ) yayınlar.
 
-### Asenkron Akış (AI'ı Besleme)
+2.  **Olayın Tüketilmesi (Bağımsız Consumer - `Raporlama-Servisi`):**
+    -   `Raporlama-Servisi`'nin "worker" betiği, `siparis.kargolandi` olayını kuyruktan alır.
+    -   `RaporlamaService`, rapor tablosuna kayıt atmak için ihtiyaç duyduğu `urun_adi`, `depo_adi` gibi tüm bilgilere zaten sahiptir. **Hiçbir ek API çağrısı yapmadan** doğrudan kendi veritabanına yazar.
 
--   `Katalog-Servisi` (Admin bir ürünü günceller) -> **`katalog.urun.guncellendi` Olayı** -> Message Broker (RabbitMQ) -> `AI-Asistan-Servisi` (Worker dinler, Gemini'dan vektör alır ve kendi DB'sine yazar).
+## Kaldırılan Bileşenler
 
-### Senkron Akış (Müşteriye Yanıt Verme)
-
--   Müşteri -> `Gateway-Servisi` (`/api/asistan/soru-sor`) -> `AI-Asistan-Servisi`
-    -   `AI-Asistan-Servisi` -> `Katalog-Servisi` (`/internal/varyant-detaylari`)
-    -   `AI-Asistan-Servisi` -> `Envanter-Servisi` (`/internal/stok-durumu`)
--   `AI-Asistan-Servisi` (Cevabı üretir) -> Müşteri
-
-## API Endpoint'leri (v6.0)
-
-### Yeni PUBLIC Endpoint'ler
-
--   `POST /api/asistan/soru-sor`: AI Alışveriş Asistanı'na doğal dilde soru sormak için kullanılır.
-
-### Yeni ADMIN Endpoint'ler
-
--   `POST /api/admin/urunler`: Yeni bir ürün oluşturur (ve AI'ı besleyen olayı tetikler).
--   `PUT /api/admin/urunler/{id}`: Bir ürünü günceller (ve AI'ı besleyen olayı tetikler).
+-   `Raporlama-Servisi` ve `Bildirim-Servisi` gibi tüketici servislerin içindeki, veri zenginleştirmek amacıyla diğer servislere yapılan tüm dahili API çağrıları (`internalApiCall` veya `file_get_contents`) kaldırılmıştır.

@@ -145,16 +145,26 @@ class UrunService
 
     private function varyantlarIcinOlayYayinla(int $urunId, array $urunVeri, string $olayAdi): void
     {
-        $stmt = $this->pdo->prepare("SELECT varyant_id FROM urun_varyantlari WHERE urun_id = ?");
+        // Kategori adını al
+        $kategoriAdi = null;
+        if (!empty($urunVeri['kategori_id'])) {
+            $stmt = $this->pdo->prepare("SELECT kategori_adi FROM kategoriler WHERE kategori_id = ?");
+            $stmt->execute([$urunVeri['kategori_id']]);
+            $kategoriAdi = $stmt->fetchColumn();
+        }
+
+        $stmt = $this->pdo->prepare("SELECT varyant_id, varyant_sku FROM urun_varyantlari WHERE urun_id = ?");
         $stmt->execute([$urunId]);
         $varyantlar = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($varyantlar as $varyant) {
             $olayVerisi = [
                 'varyant_id' => $varyant['varyant_id'],
+                'varyant_sku' => $varyant['varyant_sku'],
                 'urun_adi' => $urunVeri['urun_adi'],
                 'aciklama' => $urunVeri['meta_aciklama'] ?? '',
-                'kategori_id' => $urunVeri['kategori_id'] ?? null
+                'kategori_id' => $urunVeri['kategori_id'] ?? null,
+                'kategori_adi' => $kategoriAdi
             ];
             $this->eventBus->publish($olayAdi, $olayVerisi);
         }
