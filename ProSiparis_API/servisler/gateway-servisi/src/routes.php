@@ -24,6 +24,9 @@ if (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler/', $route) || preg
 
 // Genel servis haritası
 $servisHaritasi = [
+    // v6.0 Servisleri
+    '/api/asistan/soru-sor' => 'ai-asistan-servisi',
+
     // v4.3 Servisleri
     '/api/sayfa' => 'cms-servisi',
     '/api/bannerlar' => 'cms-servisi',

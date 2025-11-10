@@ -1,51 +1,48 @@
-# ProSiparis API v5.2 - Pazarlanabilirlik & SEO Motoru
+# ProSiparis API v6.0 - AI Alışveriş Asistanı (Faz-1)
 
-## v5.2 Yenilikleri
+## v6.0 Yenilikleri
 
-Bu sürüm, platformun sağlam altyapısı üzerine ilk büyük "iş değeri" katmanını eklemektedir. v5.2, platformu Google/Bing gibi arama motorlarında **"bulunabilir"** (teknik SEO, sitemap, `robots.txt`) ve dijital pazarlama kanallarında **"reklamlanabilir"** (Google Merchant, Bing Shopping XML feed'leri) hale getiren kapsamlı bir "Pazarlanabilirlik ve SEO Motoru" entegrasyonu sunmaktadır. Ayrıca, üçüncü parti entegrasyonların API anahtarlarını yönetmek için merkezi ve güvenli bir "Anahtar Kasası" sunar.
+Bu sürüm, platformun sağlam altyapısı üzerine inşa edilen ilk "katil özelliği" (killer feature) sunmaktadır: **Gemini tabanlı AI Alışveriş Asistanı**. Bu özellik, müşterilerin artık standart arama kutuları yerine, "doğal dil" kullanarak ürün aramasına, karmaşık sorular sormasına ve canlı stok/fiyat verilerine dayalı kişiselleştirilmiş ürün önerileri almasına olanak tanır. Bu, müşteri deneyimini temelden dönüştürerek platformu standart bir e-ticaret motorundan akıllı bir "alışveriş partneri" haline getirir.
 
-## Mimari Konseptler (v5.2 Güncellemeleri)
+## Mimari Konseptler (v6.0 Güncellemeleri)
 
-### Katalog-Servisi: Pazarlama Verisi ile Zenginleştirme
+### Yeni Servis: AI-Asistan-Servisi
 
--   `urunler`, `kategoriler` ve `urun_varyantlari` tabloları, modern pazarlama ihtiyaçlarını karşılamak üzere ciddi şekilde zenginleştirilmiştir.
--   **SEO & Sosyal Medya:** `meta_baslik`, `meta_aciklama`, `slug`, `canonical_url` ve `og_resim_url` gibi sütunlar, arama motoru optimizasyonu ve sosyal medya paylaşım standartları için eklenmiştir.
--   **Alışveriş Reklamları (Merchant Feeds):** Google Shopping ve Bing Shopping için zorunlu olan `gtin` (barkod), `mpn` (üretici parça no) ve `marka` gibi sütunlar eklenerek, platformun ürün reklamı yayınlama yeteneği kazandırılmıştır.
+-   **Konum:** `servisler/ai-asistan-servisi/`
+-   Bu yeni servis, AI ile ilgili tüm mantığın merkezidir. Hem asenkron "öğrenme" (vektör veritabanını besleme) hem de senkron "yanıtlama" (müşteri sorularını işleme) görevlerini yönetir.
 
-### Organizasyon-Servisi: API Anahtar Kasası
+### AI'ın "Beyni": Vektör Veritabanı ve Asenkron Besleme
 
--   Üçüncü parti API anahtarlarının (`iyzico`, `google_analytics` vb.) kod içinde veya yapılandırma dosyalarında güvenli olmayan bir şekilde saklanmasını önlemek için `Organizasyon-Servisi`'ne merkezi bir "API Anahtar Kasası" eklenmiştir.
--   `entegrasyon_anahtarlari` adlı yeni bir tablo, anahtar değerlerini `openssl` ile şifreleyerek veritabanında saklar.
--   Diğer servisler artık bu anahtarlara ihtiyaç duyduğunda, `Organizasyon-Servisi`'ne güvenli bir dahili API çağrısı (`/internal/organizasyon/anahtar-al`) yaparak ihtiyaç duydukları anahtarı anlık olarak alırlar.
+-   **Vektör Veritabanı:** `AI-Asistan-Servisi`, `urun_vektorleri` adında bir tablo yönetir. Bu tablo, ürünlerin metinsel verilerinin (isim, açıklama vb.) anlamsal (semantik) bir temsilini tutan "vektörleri" (embedding'ler) içerir.
+-   **Asenkron Besleme:** `Katalog-Servisi`'nde bir ürün yaratıldığında veya güncellendiğinde, `katalog.urun.guncellendi` gibi bir olay anında Message Broker'a (RabbitMQ) yayınlanır. `AI-Asistan-Servisi`'nin "worker" betiği bu olayı dinler, ürün metinlerini Gemini Embedding API'si ile vektöre dönüştürür ve kendi veritabanını günceller. Bu sayede, AI'ın "bilgisi" her zaman katalogla güncel kalır.
+
+### AI'ın "Ağzı": 2 Adımlı Soru Yanıtlama Mimarisi
+
+`POST /api/asistan/soru-sor` endpoint'i tetiklendiğinde, AI-Asistan-Servisi aşağıdaki 2 adımlı AI akışını çalıştırır:
+
+1.  **Anlamsal Arama (Vector Search):** Müşterinin doğal dildeki sorusu ("kırmızı, kapüşonlu...") önce bir "soru vektörüne" dönüştürülür. Ardından, bu soru vektörüne "anlamsal olarak" en çok benzeyen ürünler, vektör veritabanından bulunur.
+2.  **Canlı Veri Zenginleştirme + LLM Cevap Üretme:** Anlamsal olarak bulunan ürünlerin (`varyant_id`'leri) canlı verileri (stok, fiyat, resim vb.) `Katalog-Servisi` ve `Envanter-Servisi`'ne yapılan anlık dahili API çağrıları ile toplanır. Son olarak, müşterinin sorusu ve bulunan canlı ürün verileri, Gemini Chat API'sine tek bir "prompt" içinde gönderilir. Gemini, bu bilgileri kullanarak müşteriye doğal, akıcı ve bilgilendirici bir cevap metni üretir.
 
 ## Servisler Arası Yeni İletişim Akışları
 
-### Dinamik Site Haritası Oluşturma (`GET /sitemap.xml`)
+### Asenkron Akış (AI'ı Besleme)
 
-1.  İstek, `Gateway-Servisi` tarafından `Katalog-Servisi`'ne yönlendirilir.
-2.  `Katalog-Servisi`, kendi veritabanından tüm `urunler` ve `kategoriler` için `slug` (URL) listesini çeker.
-3.  `Katalog-Servisi`, `CMS-Servisi`'ne `/internal/cms/sayfa-sluglari` gibi bir dahili API çağrısı yaparak tüm statik `sayfalar`ın `slug` listesini alır.
-4.  Topladığı tüm URL'leri standart bir XML site haritası formatında birleştirir ve kullanıcıya sunar.
+-   `Katalog-Servisi` (Admin bir ürünü günceller) -> **`katalog.urun.guncellendi` Olayı** -> Message Broker (RabbitMQ) -> `AI-Asistan-Servisi` (Worker dinler, Gemini'dan vektör alır ve kendi DB'sine yazar).
 
-### Google Merchant Feed Oluşturma (`GET /api/feeds/google-merchant.xml`)
+### Senkron Akış (Müşteriye Yanıt Verme)
 
-1.  İstek, `Gateway-Servisi` tarafından `Katalog-Servisi`'ne yönlendirilir.
-2.  `Katalog-Servisi`, kendi veritabanından ürünlerin `gtin`, `marka`, `fiyat` gibi tüm pazarlama ve temel bilgilerini çeker.
-3.  `Katalog-Servisi`, her bir ürünün stok durumunu öğrenmek için `Envanter-Servisi`'ne `/internal/envanter/stok-durumu` gibi bir dahili API çağrısı yapar.
-4.  Topladığı tüm zenginleştirilmiş veriyi, Google Merchant standartlarına uygun bir XML formatında birleştirir ve sunar.
+-   Müşteri -> `Gateway-Servisi` (`/api/asistan/soru-sor`) -> `AI-Asistan-Servisi`
+    -   `AI-Asistan-Servisi` -> `Katalog-Servisi` (`/internal/varyant-detaylari`)
+    -   `AI-Asistan-Servisi` -> `Envanter-Servisi` (`/internal/stok-durumu`)
+-   `AI-Asistan-Servisi` (Cevabı üretir) -> Müşteri
 
-## API Endpoint'leri (v5.2)
+## API Endpoint'leri (v6.0)
 
 ### Yeni PUBLIC Endpoint'ler
 
--   `GET /sitemap.xml`: Dinamik olarak oluşturulan site haritası.
--   `GET /robots.txt`: Yönetici panelinden güncellenebilen `robots.txt` içeriği.
--   `GET /api/feeds/google-merchant.xml`: Google Alışveriş reklamları için ürün veri feed'i.
--   `GET /api/feeds/bing-shopping.xml`: Bing Alışveriş reklamları için ürün veri feed'i.
+-   `POST /api/asistan/soru-sor`: AI Alışveriş Asistanı'na doğal dilde soru sormak için kullanılır.
 
 ### Yeni ADMIN Endpoint'ler
 
--   `PUT /api/admin/site-ayarlari/robots`: `robots.txt` içeriğini günceller. (Yetki: `cms_yonet`)
--   `GET /api/admin/entegrasyonlar`: Kayıtlı tüm entegrasyon anahtarlarını listeler. (Yetki: `organizasyon_yonet`)
--   `POST /api/admin/entegrasyonlar`: Yeni bir entegrasyon anahtarı ekler. (Yetki: `organizasyon_yonet`)
--   `DELETE /api/admin/entegrasyonlar/{id}`: Bir entegrasyon anahtarını siler. (Yetki: `organizasyon_yonet`)
+-   `POST /api/admin/urunler`: Yeni bir ürün oluşturur (ve AI'ı besleyen olayı tetikler).
+-   `PUT /api/admin/urunler/{id}`: Bir ürünü günceller (ve AI'ı besleyen olayı tetikler).
