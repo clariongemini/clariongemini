@@ -23,13 +23,19 @@ $path = parse_url($requestUri, PHP_URL_PATH);
 $response = null;
 
 // Rota Yönetimi
-if (preg_match('/^\/api\/organizasyon\/depolar\/?$/', $path)) {
+
+// PUBLIC Endpoints (Yetki GEREKTİRMEZ)
+if (preg_match('/^\/api\/organizasyon\/depolar\/?$/', $path) && $requestMethod === 'GET') {
+    $response = $service->listeleAktifDepolar();
+}
+// ADMIN Endpoints (Yetki GEREKTİRİR - Kontrol Service katmanında yapılır)
+elseif (preg_match('/^\/api\/admin\/organizasyon\/depolar\/?$/', $path)) {
     if ($requestMethod === 'GET') {
-        $response = $service->listeleDepolar();
+        $response = $service->listeleTumDepolar();
     } elseif ($requestMethod === 'POST') {
         $response = $service->olusturDepo(json_decode(file_get_contents('php://input'), true));
     }
-} elseif (preg_match('/^\/api\/organizasyon\/depolar\/(\d+)\/?$/', $path, $matches)) {
+} elseif (preg_match('/^\/api\/admin\/organizasyon\/depolar\/(\d+)\/?$/', $path, $matches)) {
     $id = (int)$matches[1];
     if ($requestMethod === 'GET') {
         $response = $service->getDepo($id);

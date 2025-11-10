@@ -26,6 +26,9 @@ const Layout = () => {
           <Button color="inherit" component={RouterLink} to="/admin/bannerlar">
             Banner Yönetimi
           </Button>
+          <Button color="inherit" component={RouterLink} to="/admin/depolar">
+            Depo Yönetimi
+          </Button>
           <ThemeToggleButton />
           <Button color="inherit" onClick={logout} sx={{ ml: 2 }}>
             Çıkış Yap

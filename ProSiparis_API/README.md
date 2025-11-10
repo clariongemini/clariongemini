@@ -54,6 +54,17 @@ Bu sürüm, ProSiparis platformunda tamamen yeni bir fazı başlatmaktadır: **F
 
 ---
 
+# ProSiparis API v7.3 - Yönetim Paneli (Faz 4: Depo Yönetimi)
+
+Bu sürüm, platformun WMS (Çoklu Depo Yönetim Sistemi) altyapısının temelini oluşturan **Depo Yönetimi** modülünü panele ekler. Bu, hem backend (Organizasyon-Servisi) hem de frontend (Admin UI) katmanlarında geliştirmeler içeren bir "tam yığın" güncellemedir.
+
+## v7.3 Yenilikleri
+
+- **Yeni Modül (CRUD):** Yönetim Paneli'ne, depoları yönetmek için tam bir CRUD arayüzü eklendi.
+- **Yeni Backend API'leri:** Organizasyon-Servisi'ne, depoları yönetmek için `/api/admin/organizasyon/depolar` altında yeni, yetki korumalı (ACL) CRUD endpoint'leri eklendi.
+- **Yeni Yetki:** Auth-Servisi'ne, bu yeni endpoint'leri korumak için `depo_yonet` yetkisi eklendi.
+---
+
 # ProSiparis API v7.2 - Yönetim Paneli (Faz 3: CMS Yönetimi)
 
 Bu sürüm, Yönetim Paneli'nin işlevselliğini CMS-Servisi'ne bağlanarak genişletir ve iki yeni modül ekler: **Sayfa Yönetimi** ve **Banner Yönetimi**.

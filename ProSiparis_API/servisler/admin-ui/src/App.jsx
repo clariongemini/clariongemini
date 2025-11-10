@@ -10,8 +10,10 @@ import ProductListPage from './pages/ProductListPage';
 import ProductEditPage from './pages/ProductEditPage';
 import PageListPage from './pages/PageListPage';
 import PageEditPage from './pages/PageEditPage';
-import BannerListPage from './pages/BannerListPage'; // Yeni eklendi
-import BannerEditPage from './pages/BannerEditPage'; // Yeni eklendi
+import BannerListPage from './pages/BannerListPage';
+import BannerEditPage from './pages/BannerEditPage';
+import DepoListPage from './pages/DepoListPage'; // Yeni eklendi
+import DepoEditPage from './pages/DepoEditPage'; // Yeni eklendi
 import { ThemeProvider, Typography } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -42,6 +44,11 @@ const AppContent = () => {
               <Route path="/admin/bannerlar" element={<BannerListPage />} />
               <Route path="/admin/bannerlar/yeni" element={<BannerEditPage />} />
               <Route path="/admin/bannerlar/:bannerId/duzenle" element={<BannerEditPage />} />
+
+              {/* Depo Yönetimi Rotaları */}
+              <Route path="/admin/depolar" element={<DepoListPage />} />
+              <Route path="/admin/depolar/yeni" element={<DepoEditPage />} />
+              <Route path="/admin/depolar/:depoId/duzenle" element={<DepoEditPage />} />
             </Route>
         </Route>
       </Routes>
