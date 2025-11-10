@@ -1,35 +1,53 @@
-# ProSiparis API v6.1 - Mimari Mükemmelleştirme: Zengin Olaylar
+# ProSiparis API v7.0 - Yönetim Paneli (Faz 1: Temel Kurulum)
 
-## v6.1 Yenilikleri
+## v7.0 Yenilikleri
 
-Bu sürüm, platformun altyapısındaki son "teknik borcu" temizleyerek mimariyi mükemmelleştirmeye odaklanmaktadır. v6.1, "Zengin Olaylar" (Rich Events) ve "Tüketici Bağımsızlığı" (Consumer Independence) prensiplerini hayata geçirir. Artık, bir olayı yayınlayan servis (Publisher), o olayla ilgilenebilecek tüm servislerin (Consumer) ihtiyaç duyabileceği **tüm zenginleştirilmiş veriyi** (örneğin sadece `urun_id` değil, aynı zamanda `urun_adi`, `sku`, `kategori_adi` vb.) olayın içeriğine (payload) eklemekle sorumludur. Bu değişiklik, tüketici servislerin veri toplamak için başka servislere anlık (senkron) çağrılar yapma ihtiyacını ortadan kaldırarak platformun genel dayanıklılığını (resilience) ve performansını artırır.
+Bu sürüm, ProSiparis platformunda tamamen yeni bir fazı başlatmaktadır: **Frontend (Kokpit) Fazı**. v6.1 ile mimari olarak tamamlanan "Headless" Backend API motorunu (Motor) yönetecek olan modern, mobil uyumlu ve tema destekli **Yönetim Paneli (Admin UI)** projesinin temelleri bu sürümle atılmıştır. Artık platform, sadece bir API değil, aynı zamanda o API'yi yönetmek için bir arayüze de sahiptir.
 
-## Mimari Konseptler (v6.1 Güncellemeleri)
+## Mimari Konseptler (v7.0 Güncellemeleri)
 
-### Zengin Olay (Rich Event) Prensibi
+### Yeni Proje: Yönetim Paneli (`admin-ui`)
 
--   **Eski Yaklaşım:** Olaylar, sadece temel ID'leri (`urun_id`, `depo_id`) içeriyordu. Bir olayı tüketen servis (`Raporlama-Servisi` gibi), bu ID'leri kullanarak ihtiyaç duyduğu diğer bilgileri (`urun_adi`, `depo_adi`) ilgili servislere anlık API çağrıları yaparak "zenginleştirmek" zorundaydı. Bu, tüketicileri diğer servislere bağımlı kılıyordu.
--   **Yeni Yaklaşım (v6.1):** Olayı yayınlayan servis, olayı yayınlamadan hemen önce gerekli tüm dahili API çağrılarını yaparak olayın içeriğini zenginleştirir. Örneğin, `Siparis-Servisi` artık `siparis.kargolandi` olayını yayınlarken `urun_adi`, `varyant_sku`, `kategori_adi` ve `depo_adi` gibi bilgileri de payload'a ekler.
+-   **Konum:** `servisler/admin-ui/`
+-   Bu, Backend servislerinden tamamen ayrı, kendi yaşam döngüsüne sahip bir Frontend projesidir.
 
-### Tüketici Bağımsızlığı (Consumer Independence)
+### Kullanılan Ana Teknolojiler
 
--   Bu mimarinin doğal bir sonucu olarak, `Raporlama-Servisi` ve `Bildirim-Servisi` gibi tüketiciler artık tamamen bağımsızdır. Bir olayı işlemek için ihtiyaç duydukları tüm bilgi, aldıkları olayın içinde mevcuttur.
--   **Sonuç:** `Katalog-Servisi` veya `Organizasyon-Servisi` anlık olarak hizmet veremese bile, `Raporlama-Servisi` olayları işlemeye devam edebilir. Bu, sistemin genel dayanıklılığını ve servisler arası izolasyonu en üst seviyeye çıkarır.
+-   **React & Vite:** Proje, modern ve hızlı bir geliştirme deneyimi sunan Vite altyapısı üzerinde React ile geliştirilmiştir.
+-   **MUI (Material-UI):** Tüm arayüz bileşenleri, mobil uyumluluk (responsive design) ve esneklik için Google'ın Material Design prensiplerini uygulayan MUI kütüphanesi ile oluşturulmuştur.
+-   **React Router:** Tek sayfa uygulaması (SPA) içindeki sayfa yönlendirmeleri için kullanılmıştır.
+-   **Axios:** Backend API'si ile güvenli ve merkezi bir iletişim kurmak için kullanılmıştır.
 
-## Güncellenmiş Servisler Arası İletişim Akışı
+### Tema Yönetimi (Açık / Koyu / Sistem)
 
-### Asenkron Akış (Zengin Olay ile)
+-   Panel, kullanıcıların göz zevkine ve çalışma ortamlarına uyum sağlamak için **Açık Tema**, **Koyu Tema** ve **Sistem Varsayılanı** seçeneklerini destekler.
+-   Bu özellik, MUI'nin `ThemeProvider`'ı ve React Context API'si üzerine kurulu merkezi bir tema yönetim sistemi ile sağlanmıştır. Kullanıcının tercihi, tarayıcının `localStorage`'ında saklanır.
 
-**Örnek:** Bir siparişin kargoya verilmesi
+## Servisler Arası İletişim Akışı
 
-1.  **Olayın Zenginleştirilmesi ve Yayınlanması (Publisher - `Siparis-Servisi`):**
-    -   `Siparis-Servisi`, `siparis.kargolandi` olayını hazırlarken, siparişteki `varyant_id`'ler için `Katalog-Servisi`'ne ve `depo_id` için `Organizasyon-Servisi`'ne **kendi içinde** dahili API çağrıları yapar.
-    -   Topladığı tüm bu zengin veriyi (`urun_adi`, `depo_adi` vb.) olayın payload'una ekler ve Message Broker'a (RabbitMQ) yayınlar.
+### Admin UI (React) <-> Gateway-Servisi (API) İletişimi
 
-2.  **Olayın Tüketilmesi (Bağımsız Consumer - `Raporlama-Servisi`):**
-    -   `Raporlama-Servisi`'nin "worker" betiği, `siparis.kargolandi` olayını kuyruktan alır.
-    -   `RaporlamaService`, rapor tablosuna kayıt atmak için ihtiyaç duyduğu `urun_adi`, `depo_adi` gibi tüm bilgilere zaten sahiptir. **Hiçbir ek API çağrısı yapmadan** doğrudan kendi veritabanına yazar.
+1.  **Giriş (Login):**
+    -   Kullanıcı, `admin-ui`'nin `/login` sayfasında e-posta ve parolasını girer.
+    -   React uygulaması, `axios` istemcisi aracılığıyla Backend'in `POST /api/kullanici/giris` endpoint'ine bir istek gönderir.
+    -   Gateway-Servisi, bu isteği `Auth-Servisi`'ne yönlendirir.
+    -   `Auth-Servisi` kimlik bilgilerini doğrular ve bir JWT token üretip yanıt olarak döner.
+    -   React uygulaması, aldığı JWT token'ını tarayıcının `localStorage`'ına kaydeder.
 
-## Kaldırılan Bileşenler
+2.  **Yetkili İstekler (Authenticated Requests):**
+    -   Kullanıcı, `/dashboard` gibi korunmuş bir sayfaya gittiğinde, React uygulaması `axios` istemcisi ile API'ye yeni bir istek yapar.
+    -   `axios` istemcisi, her istek gönderilmeden önce `localStorage`'dan JWT token'ını okur ve isteğin `Authorization: Bearer <token>` başlığına otomatik olarak ekler.
+    -   Gateway-Servisi, bu başlığı görür, `Auth-Servisi`'ne doğrulatarak kullanıcıya erişim izni verir ve isteği ilgili servise (örn: `Raporlama-Servisi`) yönlendirir.
 
--   `Raporlama-Servisi` ve `Bildirim-Servisi` gibi tüketici servislerin içindeki, veri zenginleştirmek amacıyla diğer servislere yapılan tüm dahili API çağrıları (`internalApiCall` veya `file_get_contents`) kaldırılmıştır.
+### Dashboard Sayfasının Veri Çekme Akışı
+
+-   Kullanıcı `/dashboard` sayfasını açar.
+-   React (`DashboardPage` bileşeni), `useEffect` hook'u içinde `axios` istemcisini kullanarak `GET /api/admin/dashboard/kpi-ozet` endpoint'ine bir istek atar.
+-   Gateway-Servisi, bu isteği `Raporlama-Servisi`'ne yönlendirir.
+-   `Raporlama-Servisi` veritabanından KPI verilerini toplar ve JSON olarak yanıt döner.
+-   React uygulaması, gelen veriyi `useState` hook'u ile saklar ve MUI `Card` bileşenleri içinde ekranda gösterir.
+
+## API Endpoint'leri (v7.0)
+
+-   Bu sürümde yeni bir Backend API endpoint'i **eklenmemiştir**.
+-   Yönetim Paneli, v6.1 ve önceki sürümlerde geliştirilmiş olan mevcut `Auth-Servisi` ve `Raporlama-Servisi` endpoint'lerini kullanmaktadır.
