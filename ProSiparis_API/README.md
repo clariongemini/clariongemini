@@ -54,6 +54,18 @@ Bu sürüm, ProSiparis platformunda tamamen yeni bir fazı başlatmaktadır: **F
 
 ---
 
+# ProSiparis API v7.2 - Yönetim Paneli (Faz 3: CMS Yönetimi)
+
+Bu sürüm, Yönetim Paneli'nin işlevselliğini CMS-Servisi'ne bağlanarak genişletir ve iki yeni modül ekler: **Sayfa Yönetimi** ve **Banner Yönetimi**.
+
+## v7.2 Yenilikleri
+
+- **Sayfa Yönetimi (CRUD):** "Hakkımızda", "İletişim" gibi statik sayfaları yönetmek için tam bir CRUD arayüzü eklendi.
+- **Zengin Metin Editörü (WYSIWYG):** Sayfa içeriği oluşturmak için `react-quill` kütüphanesi ile bir zengin metin editörü entegre edildi.
+- **Banner Yönetimi (CRUD):** Sitede gösterilecek görsel banner'ları yönetmek için bir CRUD arayüzü eklendi.
+- **Kullanılan API'ler:** Bu geliştirme, CMS-Servisi'nin mevcut `/api/admin/sayfalar` ve `/api/admin/bannerlar` endpoint'lerini kullanmıştır.
+---
+
 # ProSiparis API v7.1 - Yönetim Paneli (Faz 2: Ürün Yönetimi)
 
 Bu sürüm, ProSiparis Yönetim Paneli'ne (Admin UI) ilk ve en kritik "yazma" (CRUD - Create, Read, Update, Delete) yeteneğini kazandırır. Artık yöneticiler, doğrudan kullanıcı arayüzü üzerinden Katalog-Servisi'ndeki ürünleri listeleyebilir, oluşturabilir, güncelleyebilir ve silebilir.

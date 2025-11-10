@@ -7,7 +7,11 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductListPage from './pages/ProductListPage';
-import ProductEditPage from './pages/ProductEditPage'; // Yeni eklendi
+import ProductEditPage from './pages/ProductEditPage';
+import PageListPage from './pages/PageListPage';
+import PageEditPage from './pages/PageEditPage';
+import BannerListPage from './pages/BannerListPage'; // Yeni eklendi
+import BannerEditPage from './pages/BannerEditPage'; // Yeni eklendi
 import { ThemeProvider, Typography } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -28,6 +32,16 @@ const AppContent = () => {
               <Route path="/admin/urunler" element={<ProductListPage />} />
               <Route path="/admin/urunler/yeni" element={<ProductEditPage />} />
               <Route path="/admin/urunler/:urunId/duzenle" element={<ProductEditPage />} />
+
+              {/* Sayfa Yönetimi Rotaları */}
+              <Route path="/admin/sayfalar" element={<PageListPage />} />
+              <Route path="/admin/sayfalar/yeni" element={<PageEditPage />} />
+              <Route path="/admin/sayfalar/:sayfaId/duzenle" element={<PageEditPage />} />
+
+              {/* Banner Yönetimi Rotaları */}
+              <Route path="/admin/bannerlar" element={<BannerListPage />} />
+              <Route path="/admin/bannerlar/yeni" element={<BannerEditPage />} />
+              <Route path="/admin/bannerlar/:bannerId/duzenle" element={<BannerEditPage />} />
             </Route>
         </Route>
       </Routes>
