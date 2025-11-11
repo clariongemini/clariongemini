@@ -16,6 +16,7 @@ import {
   FormControl,
 } from '@mui/material';
 import apiClient from '../api/apiClient';
+import MediaSelector from '../components/MediaSelector'; // Yeni eklendi
 
 const BannerEditPage = () => {
   const { bannerId } = useParams();
@@ -97,10 +98,18 @@ const BannerEditPage = () => {
             <TextField name="hedef_url" label="Hedef URL (Tıklanınca gidilecek link)" value={banner.hedef_url} onChange={handleChange} fullWidth />
           </Grid>
           <Grid item xs={12} sm={6}>
-             <TextField name="resim_url_mobil" label="Resim URL (Mobil)" value={banner.resim_url_mobil} onChange={handleChange} fullWidth required />
+            <MediaSelector
+              label="Mobil Görsel"
+              value={banner.resim_url_mobil}
+              onChange={(url) => setBanner(b => ({ ...b, resim_url_mobil: url }))}
+            />
           </Grid>
-           <Grid item xs={12} sm={6}>
-             <TextField name="resim_url_desktop" label="Resim URL (Desktop)" value={banner.resim_url_desktop} onChange={handleChange} fullWidth />
+          <Grid item xs={12} sm={6}>
+            <MediaSelector
+              label="Desktop Görsel"
+              value={banner.resim_url_desktop}
+              onChange={(url) => setBanner(b => ({ ...b, resim_url_desktop: url }))}
+            />
           </Grid>
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth>

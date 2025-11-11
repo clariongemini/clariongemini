@@ -12,8 +12,9 @@ import PageListPage from './pages/PageListPage';
 import PageEditPage from './pages/PageEditPage';
 import BannerListPage from './pages/BannerListPage';
 import BannerEditPage from './pages/BannerEditPage';
-import DepoListPage from './pages/DepoListPage'; // Yeni eklendi
-import DepoEditPage from './pages/DepoEditPage'; // Yeni eklendi
+import DepoListPage from './pages/DepoListPage';
+import DepoEditPage from './pages/DepoEditPage';
+import MediaGalleryPage from './pages/MediaGalleryPage'; // Yeni eklendi
 import { ThemeProvider, Typography } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -49,6 +50,9 @@ const AppContent = () => {
               <Route path="/admin/depolar" element={<DepoListPage />} />
               <Route path="/admin/depolar/yeni" element={<DepoEditPage />} />
               <Route path="/admin/depolar/:depoId/duzenle" element={<DepoEditPage />} />
+
+              {/* Medya Kütüphanesi Rotası */}
+              <Route path="/admin/medya" element={<MediaGalleryPage />} />
             </Route>
         </Route>
       </Routes>

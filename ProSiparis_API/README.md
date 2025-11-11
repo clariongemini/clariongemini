@@ -54,6 +54,18 @@ Bu sürüm, ProSiparis platformunda tamamen yeni bir fazı başlatmaktadır: **F
 
 ---
 
+# ProSiparis API v7.4 - Merkezi Medya Servisi ve Dosya Yükleme
+
+Bu sürüm, platformun en kritik işlevsel eksikliklerinden birini giderir: **Dosya Yükleme**. Bu amaçla, tüm medya varlıklarını yönetecek merkezi bir **Medya-Servisi** kurulmuş ve mevcut modüller (Ürün, Banner) bu servisi kullanacak şekilde refaktör edilmiştir.
+
+## v7.4 Yenilikleri
+
+- **Yeni Servis:** Platform geneli bir ihtiyaç olan dosya yönetimini ele almak için `medya-servisi` kuruldu.
+- **Dosya Yükleme API'si:** Yeni servis, `multipart/form-data` kabul eden güvenli bir `POST /api/admin/medya/yukle` endpoint'i sunar.
+- **Medya Kütüphanesi:** Admin paneline, yüklenmiş tüm medyaların yönetildiği bir galeri sayfası eklendi.
+- **Modül Refaktörü:** Ürün ve Banner modüllerindeki "manuel URL girişi" alanları, Medya Kütüphanesi'nden seçim yapmayı sağlayan modern bir arayüzle değiştirildi.
+---
+
 # ProSiparis API v7.3 - Yönetim Paneli (Faz 4: Depo Yönetimi)
 
 Bu sürüm, platformun WMS (Çoklu Depo Yönetim Sistemi) altyapısının temelini oluşturan **Depo Yönetimi** modülünü panele ekler. Bu, hem backend (Organizasyon-Servisi) hem de frontend (Admin UI) katmanlarında geliştirmeler içeren bir "tam yığın" güncellemedir.

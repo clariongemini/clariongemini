@@ -18,6 +18,7 @@ import {
   Radio,
 } from '@mui/material';
 import apiClient from '../api/apiClient';
+import MediaSelector from '../components/MediaSelector'; // Yeni eklendi
 
 const ProductEditPage = () => {
   const { urunId } = useParams();
@@ -26,6 +27,7 @@ const ProductEditPage = () => {
   const [product, setProduct] = useState({
     ad: '',
     aciklama: '',
+    ana_gorsel_url: '', // Yeni alan
     kategori_id: '',
     fiyat: 0,
     durum: true,
@@ -133,6 +135,13 @@ const ProductEditPage = () => {
               multiline
               rows={4}
               fullWidth
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <MediaSelector
+              label="Ana Ürün Görseli"
+              value={product.ana_gorsel_url}
+              onChange={(url) => setProduct(p => ({ ...p, ana_gorsel_url: url }))}
             />
           </Grid>
            <Grid item xs={12} sm={6}>
