@@ -65,6 +65,18 @@ Bu sürüm, platformun operasyonel kalbi olan **Sipariş Yönetimi** modülünü
 - **Yeni Yetki:** Auth-Servisi'ne, bu yeni endpoint'leri korumak için `siparis_yonet` yetkisi eklendi.
 ---
 
+# ProSiparis API v7.6 - Yönetim Paneli (Faz 6: İade Yönetimi)
+
+Bu sürüm, "Müşteri Sipariş Yaşam Döngüsü"nü tamamlayarak, platforma **İade Yönetimi (RMA)** modülünü ekler. Bu modül, tıpkı Sipariş Yönetimi gibi, tüm işlemleri kaydeden bir **Denetim Kaydı (Audit Log)** altyapısı içerir.
+
+## v7.6 Yenilikleri
+
+- **Yeni Modül:** İade taleplerini yönetmek için tam özellikli bir arayüz (`ReturnListPage`, `ReturnDetailPage`) eklendi.
+- **Entegre Denetim Kaydı:** Iade-Servisi'ne, iade sürecindeki tüm durum değişikliklerini kaydeden bir "İade Geçmişi" altyapısı eklendi.
+- **Yeni Backend API'leri:** Iade-Servisi'ne, iadeleri yönetmek için `/api/admin/iadeler` altında yeni, yetki korumalı (ACL) endpoint'ler eklendi.
+- **Yeni Yetki:** Auth-Servisi'ne, bu yeni endpoint'leri korumak için `iade_yonet` yetkisi eklendi.
+---
+
 # ProSiparis API v7.5 - Yönetim Paneli (Faz 5: Sipariş ve Denetim Kaydı)
 
 Bu sürüm, platformun operasyonel kalbi olan **Sipariş Yönetimi** modülünü, yapılan her değişikliği kaydeden bir **Denetim Kaydı (Audit Log)** altyapısıyla birlikte Yönetim Paneli'ne ekler.

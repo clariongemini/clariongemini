@@ -18,3 +18,14 @@ CREATE TABLE `iade_urunleri` (
   `durum` VARCHAR(50) NOT NULL DEFAULT 'Bekleniyor',
   FOREIGN KEY (`iade_id`) REFERENCES `iade_talepleri`(`iade_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v7.6 Denetim Kaydı (Audit Log) Tablosu
+CREATE TABLE `iade_gecmisi_loglari` (
+  `log_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `iade_id` INT NOT NULL,
+  `yapan_kullanici_id` INT NULL,
+  `eylem` VARCHAR(255) NOT NULL,
+  `aciklama` TEXT NULL,
+  `tarih` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`iade_id`) REFERENCES `iade_talepleri`(`iade_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

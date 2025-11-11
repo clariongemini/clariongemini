@@ -18,8 +18,9 @@ import MediaGalleryPage from './pages/MediaGalleryPage';
 import { ThemeProvider, Typography } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import OrderListPage from './pages/OrderListPage';
-import OrderDetailPage from './pages/OrderDetailPage'; // Yeni eklendi
-
+import OrderDetailPage from './pages/OrderDetailPage';
+import ReturnListPage from './pages/ReturnListPage';
+import ReturnDetailPage from './pages/ReturnDetailPage'; // Yeni eklendi
 
 // AppContent, tema context'ine erişebilmek için ayrı bir bileşen olmalı
 const AppContent = () => {
@@ -59,6 +60,10 @@ const AppContent = () => {
               {/* Sipariş Yönetimi Rotaları */}
               <Route path="/admin/siparisler" element={<OrderListPage />} />
               <Route path="/admin/siparisler/:siparisId" element={<OrderDetailPage />} />
+
+              {/* İade Yönetimi Rotaları */}
+              <Route path="/admin/iadeler" element={<ReturnListPage />} />
+              <Route path="/admin/iadeler/:iadeId" element={<ReturnDetailPage />} />
             </Route>
         </Route>
       </Routes>

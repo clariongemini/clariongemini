@@ -1,18 +1,18 @@
 <?php
-// Iade-Servisi API Giriş Noktası v4.0
-// servisler/iade-servisi/public/index.php
+// Iade-Servisi API Giriş Noktası v7.6
 
 header('Content-Type: application/json');
 
-// Veritabanı bağlantısı ve servis kurulumu...
+// Veritabanı bağlantısı
 try {
     $pdo = new PDO('mysql:host=db;dbname=prosiparis_iade', 'user', 'password');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['basarili' => false, 'mesaj' => 'Veritabanı bağlantı hatası.']);
+    echo json_encode(['basarili' => false, 'mesaj' => 'Veritabanı bağlantı hatası: ' . $e->getMessage()]);
     exit;
 }
+
 require_once __DIR__ . '/../src/IadeService.php';
 $service = new \ProSiparis\Iade\IadeService($pdo);
 
@@ -23,17 +23,25 @@ $path = parse_url($requestUri, PHP_URL_PATH);
 $response = null;
 
 // Rota Yönetimi
-if (preg_match('/^\/api\/depo\/(\d+)\/iade-teslim-al\/(\d+)\/?$/', $path, $matches)) {
-    if ($requestMethod === 'POST') {
-        $depoId = (int)$matches[1];
-        $iadeId = (int)$matches[2];
-        $kullaniciId = 2; // Depo görevlisi, JWT'den alınmalı
-        $response = $service->iadeTeslimAl($depoId, $iadeId, json_decode(file_get_contents('php://input'), true), $kullaniciId);
+// v7.6 ADMIN Endpoints
+if (preg_match('/^\/api\/admin\/iadeler\/?$/', $path) && $requestMethod === 'GET') {
+    $response = $service->listeleIadeler();
+} elseif (preg_match('/^\/api\/admin\/iadeler\/(\d+)\/?$/', $path, $matches)) {
+    $iadeId = (int)$matches[1];
+    if ($requestMethod === 'GET') {
+        $response = $service->getIadeDetay($iadeId);
     }
-} elseif (preg_match('/^\/api\/kullanici\/iade-talebi-olustur\/?$/', $path)) {
-    // Diğer iade endpoint'leri... (değişiklik yok)
+} elseif (preg_match('/^\/api\/admin\/iadeler\/(\d+)\/gecmis\/?$/', $path, $matches)) {
+    $iadeId = (int)$matches[1];
+    if ($requestMethod === 'GET') {
+        $response = $service->getIadeGecmisi($iadeId);
+    }
+} elseif (preg_match('/^\/api\/admin\/iadeler\/(\d+)\/durum\/?$/', $path, $matches)) {
+    $iadeId = (int)$matches[1];
+    if ($requestMethod === 'PUT') {
+        $response = $service->guncelleIadeDurumu($iadeId, json_decode(file_get_contents('php://input'), true));
+    }
 }
-// ... diğer rotalar
 
 if ($response === null) {
     http_response_code(404);
