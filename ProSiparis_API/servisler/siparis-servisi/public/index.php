@@ -14,7 +14,28 @@ $path = parse_url($requestUri, PHP_URL_PATH);
 $response = null;
 
 // Rota Yönetimi
-if (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler\/?$/', $path, $matches)) {
+
+// v7.5 ADMIN Endpoints
+if (preg_match('/^\/api\/admin\/siparisler\/?$/', $path) && $requestMethod === 'GET') {
+    $response = $service->listeleSiparisler();
+} elseif (preg_match('/^\/api\/admin\/siparisler\/(\d+)\/?$/', $path, $matches)) {
+    $siparisId = (int)$matches[1];
+    if ($requestMethod === 'GET') {
+        $response = $service->getSiparisDetay($siparisId);
+    }
+} elseif (preg_match('/^\/api\/admin\/siparisler\/(\d+)\/durum\/?$/', $path, $matches)) {
+    $siparisId = (int)$matches[1];
+    if ($requestMethod === 'PUT') {
+        $response = $service->guncelleSiparisDurumu($siparisId, json_decode(file_get_contents('php://input'), true));
+    }
+} elseif (preg_match('/^\/api\/admin\/siparisler\/(\d+)\/kargo\/?$/', $path, $matches)) {
+    $siparisId = (int)$matches[1];
+    if ($requestMethod === 'POST') {
+        $response = $service->ekleKargoBilgisi($siparisId, json_decode(file_get_contents('php://input'), true));
+    }
+}
+// Mevcut Public/Depo Endpoints
+elseif (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler\/?$/', $path, $matches)) {
     if ($requestMethod === 'GET') {
         $depoId = (int)$matches[1];
         $response = $service->getHazirlanacakSiparisler($depoId);

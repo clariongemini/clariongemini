@@ -103,4 +103,100 @@ class SiparisService
         $response = json_decode($responseJson, true);
         return ($response && isset($response['basarili']) && $response['basarili']) ? $response['veri'] : null;
     }
+
+    // --- v7.5 Admin Panel Metodları ---
+
+    private function yetkiKontrol(string $gerekliYetki): bool
+    {
+        $yetkiler = $_SERVER['HTTP_X_PERMISSIONS'] ?? '';
+        return in_array($gerekliYetki, explode(',', $yetkiler));
+    }
+
+    public function listeleSiparisler(): array
+    {
+        if (!$this->yetkiKontrol('siparis_yonet')) {
+            return ['basarili' => false, 'kod' => 403, 'mesaj' => 'Yetkisiz erişim.'];
+        }
+        $stmt = $this->pdo->query("
+            SELECT s.siparis_id, k.ad_soyad, s.siparis_tarihi, s.toplam_tutar, s.durum
+            FROM siparisler s
+            JOIN `auth-veritabani`.kullanicilar k ON s.kullanici_id = k.id
+            ORDER BY s.siparis_tarihi DESC
+        ");
+        return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+    }
+
+    public function getSiparisDetay(int $siparisId): array
+    {
+        if (!$this->yetkiKontrol('siparis_yonet')) {
+            return ['basarili' => false, 'kod' => 403, 'mesaj' => 'Yetkisiz erişim.'];
+        }
+
+        $stmt = $this->pdo->prepare("SELECT * FROM siparisler WHERE siparis_id = ?");
+        $stmt->execute([$siparisId]);
+        $siparis = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$siparis) {
+            return ['basarili' => false, 'kod' => 404, 'mesaj' => 'Sipariş bulunamadı.'];
+        }
+
+        // Diğer detayları da ekle (adres, ürünler vb.)
+        $siparis['adres'] = $this->pdo->query("SELECT * FROM teslimat_adresleri WHERE adres_id = {$siparis['teslimat_adresi_id']}")->fetch(PDO::FETCH_ASSOC);
+        $siparisDetaylari = $this->pdo->query("SELECT * FROM siparis_detaylari WHERE siparis_id = $siparisId")->fetchAll(PDO::FETCH_ASSOC);
+        $siparis['urunler'] = $this->urunDetaylariniZenginlestir($siparisDetaylari);
+
+        return ['basarili' => true, 'kod' => 200, 'veri' => $siparis];
+    }
+
+    public function guncelleSiparisDurumu(int $siparisId, array $veri): array
+    {
+        if (!$this->yetkiKontrol('siparis_yonet')) {
+            return ['basarili' => false, 'kod' => 403, 'mesaj' => 'Yetkisiz erişim.'];
+        }
+
+        $yeniDurum = $veri['yeni_durum'] ?? null;
+        if (empty($yeniDurum)) {
+            return ['basarili' => false, 'kod' => 400, 'mesaj' => 'yeni_durum alanı zorunludur.'];
+        }
+
+        $stmt = $this->pdo->prepare("UPDATE siparisler SET durum = ? WHERE siparis_id = ?");
+        $stmt->execute([$yeniDurum, $siparisId]);
+
+        // Olay yayınla
+        $this->eventBus->publish('siparis.durum.guncellendi', ['siparis_id' => $siparisId, 'yeni_durum' => $yeniDurum]);
+
+        return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Sipariş durumu güncellendi.'];
+    }
+
+    public function ekleKargoBilgisi(int $siparisId, array $veri): array
+    {
+        if (!$this->yetkiKontrol('siparis_yonet')) {
+            return ['basarili' => false, 'kod' => 403, 'mesaj' => 'Yetkisiz erişim.'];
+        }
+
+        $kargoTasiyici = $veri['kargo_tasiyici'] ?? null;
+        $takipNo = $veri['takip_no'] ?? null;
+        if (empty($kargoTasiyici) || empty($takipNo)) {
+            return ['basarili' => false, 'kod' => 400, 'mesaj' => 'kargo_tasiyici ve takip_no alanları zorunludur.'];
+        }
+
+        $stmt = $this->pdo->prepare("INSERT INTO kargo_bilgileri (siparis_id, kargo_sirketi, takip_numarasi) VALUES (?, ?, ?)");
+        $stmt->execute([$siparisId, $kargoTasiyici, $takipNo]);
+
+        // Sipariş durumunu da "kargoya_verildi" olarak güncelle
+        $this->guncelleSiparisDurumu($siparisId, ['yeni_durum' => 'kargoya_verildi']);
+
+        // Zengin olay yayınla
+        $stmt = $this->pdo->prepare("SELECT kullanici_id FROM siparisler WHERE siparis_id = ?");
+        $stmt->execute([$siparisId]);
+        $kullaniciId = $stmt->fetchColumn();
+
+        $this->eventBus->publish('siparis.kargolandi', [
+            'siparis_id' => $siparisId,
+            'kullanici_id' => $kullaniciId,
+            'kargo_tasiyici' => $kargoTasiyici,
+            'takip_no' => $takipNo
+        ]);
+
+        return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Kargo bilgisi eklendi ve sipariş durumu güncellendi.'];
+    }
 }
