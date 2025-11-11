@@ -65,6 +65,18 @@ Bu sürüm, platformun operasyonel kalbi olan **Sipariş Yönetimi** modülünü
 - **Yeni Yetki:** Auth-Servisi'ne, bu yeni endpoint'leri korumak için `siparis_yonet` yetkisi eklendi.
 ---
 
+# ProSiparis API v7.5 - Yönetim Paneli (Faz 5: Sipariş ve Denetim Kaydı)
+
+Bu sürüm, platformun operasyonel kalbi olan **Sipariş Yönetimi** modülünü, yapılan her değişikliği kaydeden bir **Denetim Kaydı (Audit Log)** altyapısıyla birlikte Yönetim Paneli'ne ekler.
+
+## v7.5 Yenilikleri
+
+- **Yeni Modül:** Siparişleri yönetmek için tam özellikli bir arayüz (`OrderListPage`, `OrderDetailPage`) eklendi.
+- **Denetim Kaydı (Audit Log):** Siparis-Servisi'ne, siparişlerde yapılan durum güncellemesi gibi tüm kritik değişiklikleri kaydeden bir "Sipariş Geçmişi" altyapısı eklendi. Bu geçmiş, Sipariş Detay sayfasında gösterilir.
+- **Yeni Backend API'leri:** Siparis-Servisi'ne, siparişleri ve denetim kayıtlarını yönetmek için `/api/admin/siparisler` altında yeni, yetki korumalı (ACL) endpoint'ler eklendi.
+- **Yeni Yetki:** Auth-Servisi'ne, bu yeni endpoint'leri korumak için `siparis_yonet` yetkisi eklendi.
+---
+
 # ProSiparis API v7.4 - Merkezi Medya Servisi ve Dosya Yükleme
 
 Bu sürüm, platformun en kritik işlevsel eksikliklerinden birini giderir: **Dosya Yükleme**. Bu amaçla, tüm medya varlıklarını yönetecek merkezi bir **Medya-Servisi** kurulmuş ve mevcut modüller (Ürün, Banner) bu servisi kullanacak şekilde refaktör edilmiştir.

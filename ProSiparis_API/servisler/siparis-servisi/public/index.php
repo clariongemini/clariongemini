@@ -23,6 +23,11 @@ if (preg_match('/^\/api\/admin\/siparisler\/?$/', $path) && $requestMethod === '
     if ($requestMethod === 'GET') {
         $response = $service->getSiparisDetay($siparisId);
     }
+} elseif (preg_match('/^\/api\/admin\/siparisler\/(\d+)\/gecmis\/?$/', $path, $matches)) {
+    $siparisId = (int)$matches[1];
+    if ($requestMethod === 'GET') {
+        $response = $service->getSiparisGecmisi($siparisId);
+    }
 } elseif (preg_match('/^\/api\/admin\/siparisler\/(\d+)\/durum\/?$/', $path, $matches)) {
     $siparisId = (int)$matches[1];
     if ($requestMethod === 'PUT') {

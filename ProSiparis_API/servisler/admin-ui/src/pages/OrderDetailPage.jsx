@@ -23,6 +23,7 @@ import AddShippingModal from '../components/AddShippingModal';
 const OrderDetailPage = () => {
   const { siparisId } = useParams();
   const [order, setOrder] = useState(null);
+  const [auditLog, setAuditLog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -33,8 +34,12 @@ const OrderDetailPage = () => {
   const fetchOrderDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/api/admin/siparisler/${siparisId}`);
-      setOrder(response.data.veri);
+      const [orderResponse, logResponse] = await Promise.all([
+        apiClient.get(`/api/admin/siparisler/${siparisId}`),
+        apiClient.get(`/api/admin/siparisler/${siparisId}/gecmis`)
+      ]);
+      setOrder(orderResponse.data.veri);
+      setAuditLog(logResponse.data.veri);
       setError('');
     } catch (err) {
       console.error("Sipariş detayları yüklenirken hata oluştu:", err);
@@ -97,6 +102,23 @@ const OrderDetailPage = () => {
                         <Typography variant="h6" align="right" sx={{ mt: 2 }}>
                             Toplam: {order.toplam_tutar.toFixed(2)} TL
                         </Typography>
+                    </CardContent>
+                </Card>
+
+                {/* Sipariş Geçmişi (Audit Log) */}
+                <Card sx={{ mt: 3 }}>
+                    <CardHeader title="Sipariş Geçmişi" />
+                    <CardContent>
+                        <List dense>
+                            {auditLog.map((log) => (
+                                <ListItem key={log.log_id} divider>
+                                    <ListItemText
+                                        primary={log.aciklama}
+                                        secondary={`İşlemi Yapan: ${log.ad_soyad || 'Sistem'} | Tarih: ${new Date(log.tarih).toLocaleString('tr-TR')}`}
+                                    />
+                                </ListItem>
+                            ))}
+                        </List>
                     </CardContent>
                 </Card>
             </Grid>

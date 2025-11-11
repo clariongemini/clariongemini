@@ -112,6 +112,15 @@ class SiparisService
         return in_array($gerekliYetki, explode(',', $yetkiler));
     }
 
+    private function logYaz(int $siparisId, string $eylem, string $aciklama): void
+    {
+        $yapanKullaniciId = $_SERVER['HTTP_X_USER_ID'] ?? null;
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO siparis_gecmisi_loglari (siparis_id, yapan_kullanici_id, eylem, aciklama) VALUES (?, ?, ?, ?)"
+        );
+        $stmt->execute([$siparisId, $yapanKullaniciId, $eylem, $aciklama]);
+    }
+
     public function listeleSiparisler(): array
     {
         if (!$this->yetkiKontrol('siparis_yonet')) {
@@ -147,6 +156,22 @@ class SiparisService
         return ['basarili' => true, 'kod' => 200, 'veri' => $siparis];
     }
 
+    public function getSiparisGecmisi(int $siparisId): array
+    {
+        if (!$this->yetkiKontrol('siparis_yonet')) {
+            return ['basarili' => false, 'kod' => 403, 'mesaj' => 'Yetkisiz erişim.'];
+        }
+        $stmt = $this->pdo->prepare("
+            SELECT sgl.*, k.ad_soyad
+            FROM siparis_gecmisi_loglari sgl
+            LEFT JOIN `auth_servis_veritabani`.kullanicilar k ON sgl.yapan_kullanici_id = k.id
+            WHERE sgl.siparis_id = ?
+            ORDER BY sgl.tarih DESC
+        ");
+        $stmt->execute([$siparisId]);
+        return ['basarili' => true, 'kod' => 200, 'veri' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+    }
+
     public function guncelleSiparisDurumu(int $siparisId, array $veri): array
     {
         if (!$this->yetkiKontrol('siparis_yonet')) {
@@ -158,10 +183,14 @@ class SiparisService
             return ['basarili' => false, 'kod' => 400, 'mesaj' => 'yeni_durum alanı zorunludur.'];
         }
 
+        $stmt = $this->pdo->prepare("SELECT durum FROM siparisler WHERE siparis_id = ?");
+        $stmt->execute([$siparisId]);
+        $mevcutDurum = $stmt->fetchColumn();
+
         $stmt = $this->pdo->prepare("UPDATE siparisler SET durum = ? WHERE siparis_id = ?");
         $stmt->execute([$yeniDurum, $siparisId]);
 
-        // Olay yayınla
+        $this->logYaz($siparisId, 'DURUM_GUNCELLEME', "Durum '$mevcutDurum' iken '$yeniDurum' olarak değiştirildi.");
         $this->eventBus->publish('siparis.durum.guncellendi', ['siparis_id' => $siparisId, 'yeni_durum' => $yeniDurum]);
 
         return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Sipariş durumu güncellendi.'];
@@ -182,8 +211,10 @@ class SiparisService
         $stmt = $this->pdo->prepare("INSERT INTO kargo_bilgileri (siparis_id, kargo_sirketi, takip_numarasi) VALUES (?, ?, ?)");
         $stmt->execute([$siparisId, $kargoTasiyici, $takipNo]);
 
-        // Sipariş durumunu da "kargoya_verildi" olarak güncelle
+        // Sipariş durumunu da "kargoya_verildi" olarak güncelle (bu işlem zaten kendi logunu atacak)
         $this->guncelleSiparisDurumu($siparisId, ['yeni_durum' => 'kargoya_verildi']);
+
+        $this->logYaz($siparisId, 'KARGO_BILGISI_EKLENDI', "Kargo: $kargoTasiyici, Takip No: $takipNo");
 
         // Zengin olay yayınla
         $stmt = $this->pdo->prepare("SELECT kullanici_id FROM siparisler WHERE siparis_id = ?");
