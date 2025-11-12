@@ -1,0 +1,18 @@
+{
+    "name": "prosiparis/tedarik-servisi",
+    "description": "ProSiparis Tedarik Servisi",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "ProSiparis\\Tedarik\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ProSiparis\\Tedarik\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    }
+}

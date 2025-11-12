@@ -8,5 +8,5 @@ CREATE TABLE `kullanicilar` ( `id` INT AUTO_INCREMENT PRIMARY KEY, `rol_id` INT 
 -- BAŞLANGIÇ VERİLERİ
 INSERT INTO `fiyat_listeleri` (`liste_id`, `liste_adi`) VALUES (1, 'Perakende'), (2, 'Bayi');
 INSERT INTO `roller` (`rol_id`, `rol_adi`, `fiyat_listesi_id`) VALUES (1, 'super_admin', 1), (2, 'kullanici', 1), (3, 'bayi', 2), (4, 'depo_gorevlisi', NULL);
-INSERT INTO `yetkiler` (`yetki_id`, `yetki_kodu`) VALUES (1,'tedarikci_yonet'),(2,'satin_alma_yonet'),(3,'satin_alma_teslim_al'),(4,'iade_yonet'),(5,'iade_teslim_al'),(6,'envanter_duzelt'),(7,'rapor_olustur'),(8,'destek_yonet');
-INSERT INTO `rol_yetki_iliskisi` (`rol_id`, `yetki_id`) VALUES (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(4,3),(4,5),(4,6);
+INSERT INTO `yetkiler` (`yetki_id`, `yetki_kodu`) VALUES (1,'tedarikci_yonet'),(2,'satin_alma_yonet'),(3,'satin_alma_teslim_al'),(4,'iade_yonet'),(5,'iade_teslim_al'),(6,'envanter_duzelt'),(7,'rapor_olustur');
+INSERT INTO `rol_yetki_iliskisi` (`rol_id`, `yetki_id`) VALUES (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(4,3),(4,5),(4,6);
