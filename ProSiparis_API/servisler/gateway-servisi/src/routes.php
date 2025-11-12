@@ -1,24 +1,32 @@
 <?php
-// API Gateway - public/index.php v4.3 (Onarılmış ve Tamamlanmış)
+// Gateway-Servisi - src/routes.php
 
+// Gelen isteğin yolunu (path) al ve sorgu dizgisini (query string) temizle
 $requestUri = $_SERVER['REQUEST_URI'];
 $route = strtok($requestUri, '?');
 
-// Yönlendirme mantığı, en spesifik rotadan en genele doğru olmalıdır.
+// Kimlik doğrulama mantığını çağır
+require __DIR__ . '/middleware.php';
+authMiddleware($route);
+
+// --- YÖNLENDİRME MANTIĞI ---
 
 // Depo bazlı WMS rotaları (en spesifik)
 if (preg_match('/^\/api\/depo\/(\d+)\/teslimat-al/', $route)) {
-    require __DIR__ . '/../servisler/tedarik-servisi/public/index.php'; exit;
+    require __DIR__ . '/../../tedarik-servisi/public/index.php'; exit;
 }
 if (preg_match('/^\/api\/depo\/(\d+)\/iade-teslim-al/', $route)) {
-    require __DIR__ . '/../servisler/iade-servisi/public/index.php'; exit;
+    require __DIR__ . '/../../iade-servisi/public/index.php'; exit;
 }
 if (preg_match('/^\/api\/depo\/(\d+)\/hazirlanacak-siparisler/', $route) || preg_match('/^\/api\/depo\/(\d+)\/siparis\/(\d+)\/kargoya-ver/', $route)) {
-    require __DIR__ . '/../servisler/siparis-servisi/public/index.php'; exit;
+    require __DIR__ . '/../../siparis-servisi/public/index.php'; exit;
 }
 
 // Genel servis haritası
 $servisHaritasi = [
+    // v6.0 Servisleri
+    '/api/asistan/soru-sor' => 'ai-asistan-servisi',
+
     // v4.3 Servisleri
     '/api/sayfa' => 'cms-servisi',
     '/api/bannerlar' => 'cms-servisi',
@@ -58,12 +66,12 @@ $servisHaritasi = [
 
 foreach ($servisHaritasi as $prefix => $servisAdi) {
     if (strpos($route, $prefix) === 0) {
-        require __DIR__ . '/../servisler/' . $servisAdi . '/public/index.php';
+        require __DIR__ . '/../../' . $servisAdi . '/public/index.php';
         exit;
     }
 }
 
-// Artık monolith kalmadığı için buraya ulaşan bir istek bulunmamalıdır.
+// Hiçbir rota eşleşmezse 404 hatası döndür
 http_response_code(404);
 echo json_encode(['basarili' => false, 'mesaj' => 'Endpoint bulunamadı.']);
 exit;

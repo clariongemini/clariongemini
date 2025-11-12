@@ -51,17 +51,50 @@ class UrunController
         $this->jsonYanitGonder($sonuc);
     }
 
-    public function internalGetVaryantDetaylari(Request $request, array $params): void
+    public function internalGetVaryantDetaylari(Request $request): void
     {
-        $varyantId = $params['id'] ?? null;
-        if (empty($varyantId)) {
-            $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Varyant ID eksik.']);
+        $queryParams = $request->getQueryParams();
+        $ids = $queryParams['ids'] ?? '';
+
+        if (empty($ids)) {
+            $this.jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Varyant ID\'leri (`ids`) eksik.']);
             return;
         }
 
-        $sonuc = $this->urunService->getVaryantDetaylari((int)$varyantId);
-        $this->jsonYanitGonder($sonuc);
+        $idList = explode(',', $ids);
+        // Bu, `getVaryantDetaylari` metodunun birden fazla ID kabul etmesi gerektiğini varsayar.
+        // Şimdilik, döngü içinde tek tek çağırarak simüle edelim.
+        $sonuclar = [];
+        foreach($idList as $id) {
+            $sonuc = $this->urunService->getVaryantDetaylari((int)$id);
+            if ($sonuc['basarili']) {
+                $sonuclar[$id] = $sonuc['veri'];
+            }
+        }
+
+        $this->jsonYanitGonder(['basarili' => true, 'kod' => 200, 'veri' => $sonuclar]);
     }
 
     private function jsonYanitGonder(array $sonuc): void { /* ... */ }
+
+    // --- v6.0 Admin CUD Metodları ---
+
+    public function olustur(Request $request): void
+    {
+        $veri = $request->getBody();
+        $sonuc = $this->urunService->urunOlustur($veri);
+        $this->jsonYanitGonder($sonuc);
+    }
+
+    public function guncelle(Request $request, array $params): void
+    {
+        $urunId = (int)($params['id'] ?? 0);
+        if ($urunId === 0) {
+            $this->jsonYanitGonder(['basarili' => false, 'kod' => 400, 'mesaj' => 'Geçerli bir ürün ID\'si gereklidir.']);
+            return;
+        }
+        $veri = $request->getBody();
+        $sonuc = $this->urunService->urunGuncelle($urunId, $veri);
+        $this->jsonYanitGonder($sonuc);
+    }
 }

@@ -59,23 +59,19 @@ class KuponService
         $this->pdo->commit();
     }
 
-    public function olaylariIsle(): array
+    /**
+     * v5.1: RabbitMQ'dan gelen 'siparis.basarili' olayını işler.
+     */
+    public function tekOlayIsle(string $olayTipi, array $veri): void
     {
-        $corePdo = new PDO('mysql:host=db;dbname=prosiparis_core', 'user', 'password');
-        $stmt = $corePdo->prepare("SELECT olay_id, veri FROM olay_gunlugu WHERE olay_tipi = 'siparis.basarili' AND islendi_kupon = 0 ORDER BY olay_id ASC");
-        $stmt->execute();
-        $olaylar = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $islenen_sayac = 0;
-        foreach ($olaylar as $olay) {
-            $veri = json_decode($olay['veri'], true);
-            if (!empty($veri['kullanilan_kupon_kodu'])) {
+        if ($olayTipi === 'siparis.basarili' && !empty($veri['kullanilan_kupon_kodu'])) {
+            try {
                 $this->kullanimSayaciniArtir($veri['kullanilan_kupon_kodu'], $veri['siparis_id'], $veri['kullanici_id']);
-                $islenen_sayac++;
+                echo "Kupon kullanım sayacı artırıldı: {$veri['kullanilan_kupon_kodu']}\n";
+            } catch (\Exception $e) {
+                error_log("Kupon olayı işlenirken hata: " . $e->getMessage());
             }
-            $corePdo->prepare("UPDATE olay_gunlugu SET islendi_kupon = 1 WHERE olay_id = ?")->execute([$olay['olay_id']]);
         }
-        return ['islenen_kupon_olay_sayisi' => $islenen_sayac];
     }
     // ... Admin CRUD metodları (listele, olustur, guncelle, sil)
 }

@@ -14,66 +14,65 @@ class EnvanterService
     }
 
     /**
-     * WMS v4.0: Event Bus'taki olayları yeni mimariye göre işler.
+     * v5.1: RabbitMQ'dan gelen tek bir olayı işler.
+     * Bu metod, bir worker/consumer tarafından tetiklenir.
+     *
+     * @param string $olayTipi Olayın adı (örn: "siparis.kargolandi")
+     * @param array $veri Olayın payload'u
      */
-    public function olaylariIsle(): array
+    public function tekOlayIsle(string $olayTipi, array $veri): void
     {
-        $olayTipleri = ['siparis.kargolandi', 'tedarik.mal_kabul_yapildi', 'iade.stoga_geri_alindi'];
-        $placeholders = rtrim(str_repeat('?,', count($olayTipleri)), ',');
-
-        $sql = "SELECT olay_id, olay_tipi, veri FROM olay_gunlugu WHERE olay_tipi IN ($placeholders) AND islendi = 0 ORDER BY olay_id ASC";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($olayTipleri);
-        $olaylar = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $islenen_olay_sayisi = 0;
-        foreach ($olaylar as $olay) {
-            $this->pdo->beginTransaction();
-            try {
-                $veri = json_decode($olay['veri'], true);
-                $depoId = $veri['depo_id'];
-
-                switch ($olay['olay_tipi']) {
-                    case 'tedarik.mal_kabul_yapildi':
-                        foreach ($veri['urunler'] as $urun) {
-                            if (isset($urun['seri_numaralari'])) {
-                                $this->seriNoGirisiYap($depoId, $urun['varyant_id'], $urun['seri_numaralari'], $veri['po_id']);
-                            } else {
-                                $this->stokGuncelleAdetBazli($depoId, $urun['varyant_id'], $urun['gelen_adet'], 'satin_alma', $veri['po_id'], $veri['kullanici_id'], $urun['maliyet']);
-                            }
-                        }
-                        break;
-
-                    case 'siparis.kargolandi':
-                        foreach ($veri['urunler'] as $urun) {
-                            if (isset($urun['seri_no'])) {
-                                $this->seriNoDurumGuncelle($urun['seri_no'], 'satildi', ['siparis_id' => $veri['siparis_id']]);
-                            } else {
-                                $this->stokGuncelleAdetBazli($depoId, $urun['varyant_id'], -$urun['adet'], 'satis', $veri['siparis_id'], null, null);
-                            }
-                        }
-                        break;
-
-                    case 'iade.stoga_geri_alindi':
-                        foreach ($veri['urunler'] as $urun) {
-                            if (isset($urun['seri_no'])) {
-                                $this->seriNoDurumGuncelle($urun['seri_no'], 'iade_satilabilir', ['iade_id' => $veri['iade_id']]);
-                            } else {
-                                $this->stokGuncelleAdetBazli($depoId, $urun['varyant_id'], $urun['adet'], 'iade_giris', $veri['iade_id'], null, null);
-                            }
-                        }
-                        break;
-                }
-
-                $this->pdo->prepare("UPDATE olay_gunlugu SET islendi = 1 WHERE olay_id = ?")->execute([$olay['olay_id']]);
-                $this->pdo->commit();
-                $islenen_olay_sayisi++;
-            } catch (Exception $e) {
-                $this->pdo->rollBack();
-                error_log("Envanter olayı işlenirken hata (ID: {$olay['olay_id']}): " . $e->getMessage());
+        $this->pdo->beginTransaction();
+        try {
+            // depo_id, olay verisinden her zaman alınmalıdır.
+            $depoId = $veri['depo_id'] ?? null;
+            if ($depoId === null) {
+                throw new Exception("Olay verisinde 'depo_id' bulunamadı.");
             }
+
+            switch ($olayTipi) {
+                case 'tedarik.mal_kabul_yapildi':
+                    foreach ($veri['urunler'] as $urun) {
+                        if (isset($urun['seri_numaralari'])) {
+                            $this->seriNoGirisiYap($depoId, $urun['varyant_id'], $urun['seri_numaralari'], $veri['po_id']);
+                        } else {
+                            $this->stokGuncelleAdetBazli($depoId, $urun['varyant_id'], $urun['gelen_adet'], 'satin_alma', $veri['po_id'], $veri['kullanici_id'], $urun['maliyet']);
+                        }
+                    }
+                    break;
+
+                case 'siparis.kargolandi':
+                    foreach ($veri['urunler'] as $urun) {
+                        // Not: siparis.kargolandi olayında depo_id'nin payload'a eklenmesi gerekecek.
+                        // Şimdilik, her ürünün kendi depo_id'si olduğunu varsayıyoruz (eğer varsa).
+                        $urunDepoId = $urun['depo_id'] ?? $depoId;
+                        if (isset($urun['seri_no'])) {
+                            $this->seriNoDurumGuncelle($urun['seri_no'], 'satildi', ['siparis_id' => $veri['siparis_id']]);
+                        } else {
+                            $this->stokGuncelleAdetBazli($urunDepoId, $urun['varyant_id'], -$urun['adet'], 'satis', $veri['siparis_id'], null, null);
+                        }
+                    }
+                    break;
+
+                case 'iade.stoga_geri_alindi':
+                    foreach ($veri['urunler'] as $urun) {
+                        if (isset($urun['seri_no'])) {
+                            $this->seriNoDurumGuncelle($urun['seri_no'], 'iade_satilabilir', ['iade_id' => $veri['iade_id']]);
+                        } else {
+                            $this->stokGuncelleAdetBazli($depoId, $urun['varyant_id'], $urun['adet'], 'iade_giris', $veri['iade_id'], null, null);
+                        }
+                    }
+                    break;
+            }
+
+            $this->pdo->commit();
+            echo "Olay başarıyla işlendi: $olayTipi" . PHP_EOL;
+
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            // Gerçek bir RabbitMQ entegrasyonunda bu, olayı 'dead-letter queue'ye gönderebilir.
+            error_log("Envanter olayı işlenirken hata ($olayTipi): " . $e->getMessage());
         }
-        return ['islenen_olay_sayisi' => $islenen_olay_sayisi];
     }
 
     /**

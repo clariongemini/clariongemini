@@ -1,26 +1,26 @@
 <?php
 namespace ProSiparis\Tedarik;
 
+require_once __DIR__ . '/../../../core/EventBusService.php';
+
 use PDO;
 use Exception;
+use ProSiparis\Core\EventBusService;
 
 class TedarikService
 {
     private PDO $pdo;
-    private PDO $eventPdo;
+    private EventBusService $eventBus;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
-        $this->eventPdo = new PDO('mysql:host=db;dbname=prosiparis_core', 'user', 'password');
-        $this->eventPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->eventBus = new EventBusService();
     }
 
     private function publishEvent(string $eventType, array $data): void
     {
-        $sql = "INSERT INTO olay_gunlugu (olay_tipi, veri) VALUES (?, ?)";
-        $stmt = $this->eventPdo->prepare($sql);
-        $stmt->execute([$eventType, json_encode($data)]);
+        $this->eventBus->publish($eventType, $data);
     }
 
     private function getTakipYontemi(int $varyantId): ?string

@@ -111,4 +111,25 @@ class AuthService
 
         return ['basarili' => false, 'kod' => 401, 'mesaj' => 'E-posta veya parola hatalı.'];
     }
+
+    /**
+     * Verilen JWT'yi doğrular ve payload'daki veriyi döndürür.
+     * @param string $token Doğrulanacak JWT
+     * @return array Başarı veya hata durumu, başarılı ise kullanıcı verisi
+     */
+    public function tokenDogrula(string $token): array
+    {
+        try {
+            $decoded = JWT::decode($token, JWT_SECRET_KEY, ['HS256']);
+            $kullaniciVerisi = (array)$decoded->data;
+
+            return [
+                'basarili' => true,
+                'kod' => 200,
+                'veri' => $kullaniciVerisi
+            ];
+        } catch (\Exception $e) {
+            return ['basarili' => false, 'kod' => 401, 'mesaj' => 'Geçersiz veya süresi dolmuş token: ' . $e->getMessage()];
+        }
+    }
 }

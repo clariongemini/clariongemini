@@ -1,15 +1,20 @@
 <?php
 namespace ProSiparis\Service;
 
+require_once __DIR__ . '/../../../core/EventBusService.php';
+
 use PDO;
+use ProSiparis\Core\EventBusService;
 
 class UrunService
 {
     private PDO $pdo;
+    private EventBusService $eventBus;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->eventBus = new EventBusService();
     }
 
     // ... (mevcut public metodlar)
@@ -79,5 +84,89 @@ class UrunService
         }
 
         return ['basarili' => true, 'kod' => 200, 'veri' => $result];
+    }
+
+    // --- v6.0 CUD Metodları ve Olay Yayınlama ---
+
+    public function urunOlustur(array $veri): array
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $sql = "INSERT INTO urunler (urun_adi, kategori_id, takip_yontemi, meta_baslik, meta_aciklama, slug, marka) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                $veri['urun_adi'],
+                $veri['kategori_id'] ?? null,
+                $veri['takip_yontemi'] ?? 'adet',
+                $veri['meta_baslik'] ?? null,
+                $veri['meta_aciklama'] ?? '',
+                $veri['slug'],
+                $veri['marka'] ?? null
+            ]);
+            $urunId = $this->pdo->lastInsertId();
+            $this->pdo->commit();
+
+            // İşlem başarılı olduktan sonra, bu ürüne bağlı tüm varyantlar için olay yayınla
+            $this->varyantlarIcinOlayYayinla($urunId, $veri, 'katalog.varyant.yaratildi');
+
+            return ['basarili' => true, 'kod' => 201, 'veri' => ['urun_id' => $urunId]];
+        } catch (\Exception $e) {
+            $this->pdo->rollBack();
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Ürün oluşturulurken hata: ' . $e->getMessage()];
+        }
+    }
+
+    public function urunGuncelle(int $urunId, array $veri): array
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $sql = "UPDATE urunler SET urun_adi = ?, kategori_id = ?, meta_baslik = ?, meta_aciklama = ?, slug = ?, marka = ? WHERE urun_id = ?";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                $veri['urun_adi'],
+                $veri['kategori_id'] ?? null,
+                $veri['meta_baslik'] ?? null,
+                $veri['meta_aciklama'] ?? '',
+                $veri['slug'],
+                $veri['marka'] ?? null,
+                $urunId
+            ]);
+            $this->pdo->commit();
+
+            // İşlem başarılı olduktan sonra, bu ürüne bağlı tüm varyantlar için olay yayınla
+            $this->varyantlarIcinOlayYayinla($urunId, $veri, 'katalog.varyant.guncellendi');
+
+            return ['basarili' => true, 'kod' => 200, 'mesaj' => 'Ürün başarıyla güncellendi.'];
+        } catch (\Exception $e) {
+            $this->pdo->rollBack();
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Ürün güncellenirken hata: ' . $e->getMessage()];
+        }
+    }
+
+    private function varyantlarIcinOlayYayinla(int $urunId, array $urunVeri, string $olayAdi): void
+    {
+        // Kategori adını al
+        $kategoriAdi = null;
+        if (!empty($urunVeri['kategori_id'])) {
+            $stmt = $this->pdo->prepare("SELECT kategori_adi FROM kategoriler WHERE kategori_id = ?");
+            $stmt->execute([$urunVeri['kategori_id']]);
+            $kategoriAdi = $stmt->fetchColumn();
+        }
+
+        $stmt = $this->pdo->prepare("SELECT varyant_id, varyant_sku FROM urun_varyantlari WHERE urun_id = ?");
+        $stmt->execute([$urunId]);
+        $varyantlar = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($varyantlar as $varyant) {
+            $olayVerisi = [
+                'varyant_id' => $varyant['varyant_id'],
+                'varyant_sku' => $varyant['varyant_sku'],
+                'urun_adi' => $urunVeri['urun_adi'],
+                'aciklama' => $urunVeri['meta_aciklama'] ?? '',
+                'kategori_id' => $urunVeri['kategori_id'] ?? null,
+                'kategori_adi' => $kategoriAdi
+            ];
+            $this->eventBus->publish($olayAdi, $olayVerisi);
+        }
     }
 }

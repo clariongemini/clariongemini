@@ -24,10 +24,21 @@ $service = new \ProSiparis\Envanter\EnvanterService($pdo);
 
 // Sadece dahili (internal) API'ler için basit rota yönetimi
 if (preg_match('/^\/internal\/stok-durumu\/?$/', $path)) {
-    if ($requestMethod === 'GET' && isset($_GET['varyant_ids'])) {
-        $varyantIds = explode(',', $_GET['varyant_ids']);
-        $varyantIds = array_map('intval', $varyantIds);
-        $response = $service->getDepoStokDurumu($varyantIds);
+    if ($requestMethod === 'GET') {
+        if (isset($_GET['varyant_ids'])) {
+            $varyantIds = explode(',', $_GET['varyant_ids']);
+        } elseif (isset($_GET['varyant_id'])) {
+            $varyantIds = [$_GET['varyant_id']];
+        } else {
+            $varyantIds = [];
+        }
+
+        if (!empty($varyantIds)) {
+            $varyantIds = array_map('intval', $varyantIds);
+            $response = $service->getDepoStokDurumu($varyantIds);
+        } else {
+            $response = ['basarili' => false, 'kod' => 400, 'mesaj' => '`varyant_id` veya `varyant_ids` parametresi zorunludur.'];
+        }
     }
 } elseif (preg_match('/^\/internal\/envanter\/uygun-depo-bul\/?$/', $path)) {
     if ($requestMethod === 'POST') {
