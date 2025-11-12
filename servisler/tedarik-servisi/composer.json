@@ -1,0 +1,11 @@
+{
+    "name": "prosiparis/tedarik-servisi",
+    "description": "ProSiparis Tedarik Servisi",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "ProSiparis\\Tedarik\\": "src/"
+        }
+    },
+    "require": {}
+}

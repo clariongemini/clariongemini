@@ -1,48 +1,67 @@
-# ProSiparis API v3.1 - Mikroservis Mimarisi (Faz-2): Sipariş Servisi
+# ProSiparis API v7.7 - Tedarik Servisi'nin (PO) Kurulması ve Arayüzü
 
-Bu proje, ProSiparis e-ticaret platformunun dağıtık bir mimariye geçişinin ikinci ve en kritik fazını temsil etmektedir. Bu sürümle birlikte, e-ticaretin kalbi olan **Sipariş Yaşam Döngüsü**, Ana Monolith'ten tamamen ayrıştırılarak kendi kendine yeten, bağımsız bir **Siparis-Servisi** haline getirilmiştir.
+Bu sürüm, ProSiparis WMS/ERP vizyonunun temel taşlarından birini yerine oturtarak "Envanter Yaşam Döngüsü"nü tamamlamaktadır. v7.7 ile, platformun ürünleri nasıl sattığı (Sipariş) ve geri aldığı (İade) gibi, bu ürünlerin depoya ilk nasıl girdiği (Tedarik) süreci de hem backend servisi hem de modern bir frontend arayüzü ile yönetilebilir hale gelmiştir.
 
-**v3.1'in Ana Hedefleri:**
--   **Dayanıklılık:** Sipariş alma ve işleme süreçlerinin, platformun diğer parçalarından (örn: CMS, Tedarik Zinciri) izole edilerek, bu servislerde yaşanacak olası sorunlardan etkilenmemesini sağlamak.
--   **Odaklanmış Sorumluluk:** Siparişle ilgili tüm karmaşık iş mantığını (ödeme, adres yönetimi, kargolama) tek bir serviste toplayarak geliştirmeyi ve bakımı kolaylaştırmak.
+## v7.7 Yenilikleri: Teknik Borcun Ödenmesi ve WMS'in Tamamlanması
 
----
-
-## Mimari Konseptler (v3.1 Güncellemeleri)
-
-### 1. Mantıksal Servis Ayrımı (Genişletildi)
-Platform artık daha fazla, daha odaklanmış servislerden oluşmaktadır:
--   `servisler/auth-servisi/` (v3.0)
--   `servisler/katalog-servisi/` (v3.0)
--   `servisler/envanter-servisi/` (v3.0)
--   `servisler/siparis-servisi/` **(YENİ):** Ödeme, adres yönetimi, kargo seçenekleri ve siparişin oluşturulmasından kargolanmasına kadar olan tüm "fulfillment" sürecinden sorumludur.
--   `servisler/bildirim-servisi/` **(YENİ):** E-posta gibi tüm asenkron bildirim gönderimlerinden sorumludur.
-
-### 2. Ana Monolith (Legacy Core) (Küçültüldü)
-Ana Monolith'in rolü önemli ölçüde azalmıştır. Artık sadece şu modülleri yönetmektedir:
--   İadeler (RMA), Tedarik Zinciri (PO), Kuponlar, CMS ve Destek Talepleri.
-
-### 3. Servisler Arası İletişim (Detaylandırıldı)
-Servisler, birbirleriyle iki temel yöntemle haberleşir:
-
-#### **Asenkron İletişim (Event Bus üzerinden)**
-Siparis-Servisi, tamamladığı önemli iş adımlarını diğer servislerin dinlemesi için "olay" (event) olarak yayınlar. Bu, sistemin dayanıklılığını artırır.
--   **Örnek Akış 1 (Sipariş Başarılı):**
-    1.  `Siparis-Servisi`, ödeme başarılı olduğunda `siparis.basarili` olayını yayınlar.
-    2.  `Bildirim-Servisi`, bu olayı dinler ve müşteriye "Siparişiniz Alındı" e-postasını gönderir.
--   **Örnek Akış 2 (Sipariş Kargolandı):**
-    1.  `Siparis-Servisi` (Depo API'si aracılığıyla), bir siparişi kargoya verdiğinde `siparis.kargolandi` olayını yayınlar.
-    2.  `Envanter-Servisi`, bu olayı dinler, ilgili ürünlerin stoğunu düşürür ve maliyet kaydını (Ledger) oluşturur.
-    3.  `Bildirim-Servisi`, bu olayı dinler ve müşteriye "Kargonuz Yola Çıktı" e-postasını gönderir.
-
-#### **Senkron İletişim (Internal API Çağrıları üzerinden)**
-Bir servisin, bir işlemi tamamlamak için başka bir servisten anlık olarak veri alması gerektiğinde kullanılır.
--   **Örnek Akış (Ödeme Başlatma):**
-    1.  `Siparis-Servisi`, ödemeyi başlatmadan önce sepet tutarını doğrulamak zorundadır.
-    2.  Bunun için, `Katalog-Servisi`'ne anlık, senkron bir internal API çağrısı (`GET /internal/katalog/varyantlar?ids=...`) yaparak ürünlerin güncel ve doğru fiyatlarını alır.
-    3.  Eğer kupon varsa, `Ana Monolith`'e bir internal API çağrısı (`POST /internal/legacy/kupon-dogrula`) yaparak kuponun geçerliliğini kontrol eder.
+-   **Teknik Borç Ödendi (v3.2):** Proje yol haritasında planlanmış ancak atlanmış olan bağımsız `Tedarik-Servisi`'nin kurulumu bu sürümle tamamlanmıştır. Bu, platformun mimari bütünlüğünü sağlamış ve "Satın Alma Siparişi" (Purchase Order - PO) mantığını kendi izole servisine taşımıştır.
+-   **Envanter Yaşam Döngüsü Tamamlandı:** Bir ürünün tedarikçiden satın alınarak depoya kabul edilmesi (`Stok Girişi`), müşteriye satılması (`Stok Çıkışı`) ve iade olarak geri alınması (`Stok Girişi`) döngüsü, v7.7 ile artık baştan sona yönetilmektedir. Bu, WMS/ERP vizyonumuzun temelini oluşturur.
+-   **Tam Yığın (Full-Stack) Modül:** Bu sürüm, hem sıfırdan bir backend mikroservisinin (Tedarik-Servisi) inşasını hem de bu servisi kullanan tam özellikli bir yönetim arayüzünün (Admin-UI) geliştirilmesini içermektedir.
 
 ---
 
-## Kurulum ve Çalıştırma
-Kurulum adımları v3.0 ile aynıdır, ancak artık her biri kendi `schema_*.sql` dosyasına sahip daha fazla servis bulunmaktadır. API Gateway (`public/index.php`), siparişle ilgili tüm istekleri otomatik olarak yeni `siparis-servisi`'ne yönlendirecek şekilde güncellenmiştir.
+## Mimari Konseptler (v7.7 Güncellemeleri)
+
+### 1. Yeni Mikroservis: `servisler/tedarik-servisi/`
+Platform mimarisine, satın alma ve mal kabul süreçlerinden sorumlu, tamamen bağımsız yeni bir servis eklenmiştir.
+-   **Veritabanı Şeması (`schema_tedarik.sql`):**
+    -   `tedarikciler`: Satın alım yapılan firmaların ana verilerini tutar.
+    -   `tedarik_siparisleri`: Satın Alma Siparişlerinin (PO) başlık bilgilerini (tedarikçi, depo, durum) yönetir.
+    -   `tedarik_siparis_urunleri`: Her bir PO'ya ait ürün satırlarını (sipariş edilen/teslim alınan adet, maliyet) yönetir.
+    -   `tedarik_gecmisi_loglari`: PO üzerindeki tüm durum değişikliklerini ve mal kabul işlemlerini denetim kaydı olarak tutar.
+
+### 2. ACL Yetkileri: Görev Ayrılığı Prensibi
+`Auth-Servisi`'ne eklenen yeni yetkilerle, tedarik süreçlerindeki görevler net bir şekilde ayrılmıştır:
+-   `tedarikci_yonet`: Yalnızca tedarikçi ana verilerini yönetme yetkisi.
+-   `tedarik_yonet`: Satın Alma Siparişi oluşturma ve durumunu yönetme yetkisi.
+-   `tedarik_teslim_al`: Bir PO'ya ait ürünleri fiziksel olarak depoya kabul etme (mal kabul) yetkisi. Bu yetki, `depo_gorevlisi` rolüne atanarak, finansal ve operasyonel görevlerin ayrılmasını sağlar.
+
+### 3. Frontend Mimarisi: "Kısmi Teslim" (Partial Delivery)
+Admin UI'ye eklenen "Tedarik Yönetimi" modülünün "Ürünleri Teslim Al" modalı, WMS'in temel bir gereksinimi olan kısmi teslimi destekler. Arayüz, kullanıcıya sipariş edilen, daha önce alınan ve kalan adetleri net bir şekilde gösterir. Ayrıca, kullanıcının kalan adetten daha fazla ürün teslim almasını engelleyen frontend doğrulamaları içerir.
+
+---
+
+## Servisler Arası Yeni İletişim Akışları
+
+### 1. Senkron Akış: Admin UI -> Tedarik-Servisi
+Kullanıcının Admin Panelinde yaptığı tüm tedarik yönetimi işlemleri, API Gateway üzerinden `Tedarik-Servisi`'ne yönlendirilen senkron API çağrıları ile gerçekleştirilir:
+-   `GET /api/admin/tedarik/tedarikciler`
+-   `POST /api/admin/tedarik/siparisler`
+-   `POST /api/admin/tedarik/siparisler/:poId/teslim-al`
+
+### 2. Asenkron Akış: Tedarik-Servisi -> RabbitMQ -> Envanter-Servisi
+Bir mal kabul işlemi başarıyla tamamlandığında, envanterin güncellenmesi asenkron bir "zengin olay" (rich event) ile tetiklenir. Bu, sistemin dayanıklılığını artırır ve servisler arasındaki bağımlılığı azaltır.
+-   **Olay:** `tedarik.mal_kabul_yapildi`
+-   **Akış:**
+    1.  **Publisher (`Tedarik-Servisi`):** Depo görevlisi bir ürünü teslim aldığında, `teslim-al` endpoint'i bu olayı RabbitMQ'ya yayınlar.
+    2.  **Payload (Zengin Olay):** Olay, `Envanter-Servisi`'nin ihtiyaç duyacağı tüm bilgileri içerir: `po_id`, `depo_id`, `gelen_urunler` (içinde `varyant_id`, `gelen_adet` ve en önemlisi `maliyet_fiyati`).
+    3.  **Consumer (`Envanter-Servisi`):** Bu olayı dinler, gelen `depo_id` ve ürün bilgilerini kullanarak `depo_stoklari` tablosundaki envanteri artırır ve `maliyet_fiyati` bilgisini kullanarak Ağırlıklı Ortalama Maliyet (AOM) hesaplamalarını günceller.
+
+---
+
+## API Endpoint'leri (v7.7)
+
+### Yeni Backend Servisi: `Tedarik-Servisi`
+-   `GET /api/admin/tedarik/tedarikciler`: Tüm tedarikçileri listeler.
+-   `POST /api/admin/tedarik/tedarikciler`: Yeni tedarikçi oluşturur.
+-   `PUT /api/admin/tedarik/tedarikciler/:id`: Bir tedarikçiyi günceller.
+-   `DELETE /api/admin/tedarik/tedarikciler/:id`: Bir tedarikçiyi siler.
+-   `GET /api/admin/tedarik/siparisler`: Tüm Satın Alma Siparişlerini listeler.
+-   `POST /api/admin/tedarik/siparisler`: Yeni bir Satın Alma Siparişi oluşturur.
+-   `GET /api/admin/tedarik/siparisler/:poId`: Tek bir PO'nun detaylarını getirir.
+-   `PUT /api/admin/tedarik/siparisler/:poId/durum`: Bir PO'nun durumunu günceller.
+-   `POST /api/admin/tedarik/siparisler/:poId/teslim-al`: Bir PO'ya ait ürünlerin depoya girişini kaydeder (Mal Kabul).
+-   `GET /api/admin/tedarik/siparisler/:poId/gecmis`: Bir PO'nun denetim kayıtlarını listeler.
+
+### Güncellenen Backend Servisi: `Auth-Servisi`
+-   **YENİ Yetkiler:** `tedarikci_yonet`, `tedarik_yonet`, `tedarik_teslim_al`.
