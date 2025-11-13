@@ -1,0 +1,194 @@
+version: '3.8'
+
+# FulcrumOS v9.2 - Docker Compose Orchestration
+# Design & Architecture by Ulaş Kaşıkcı
+
+networks:
+  fulcrumos-net:
+    driver: bridge
+
+volumes:
+  fulcrumos_db_data:
+  fulcrumos_rabbitmq_data:
+
+services:
+  # 1. Altyapı (Infrastructure)
+  mysql:
+    image: mysql:8.0
+    container_name: fulcrumos-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "${DB_PORT}:3306"
+    volumes:
+      - fulcrumos_db_data:/var/lib/mysql
+      - ./demo.sql:/docker-entrypoint-initdb.d/demo.sql
+    networks:
+      - fulcrumos-net
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    container_name: fulcrumos-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_UI_PORT}:15672"
+    volumes:
+      - fulcrumos_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - fulcrumos-net
+
+  # 2. Frontend (Arayüz)
+  admin-ui:
+    build:
+      context: ./servisler/admin-ui
+      dockerfile: Dockerfile
+    container_name: fulcrumos-admin-ui
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_UI_PORT}:80" # Nginx serves on port 80
+    networks:
+      - fulcrumos-net
+    depends_on:
+      - gateway-servisi
+
+  # 3. Backend Servisleri (PHP/FPM)
+  # Ortak ortam değişkenleri için bir YAML anchor tanımlıyoruz.
+  php-base: &php-base
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - rabbitmq
+    networks:
+      - fulcrumos-net
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${MYSQL_DATABASE}
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS}
+
+  gateway-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/gateway-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-gateway
+    ports:
+      - "${GATEWAY_PORT}:80"
+
+  auth-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/auth-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-auth
+
+  organizasyon-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/organizasyon-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-organizasyon
+
+  katalog-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/katalog-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-katalog
+
+  envanter-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/envanter-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-envanter
+
+  siparis-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/siparis-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-siparis
+
+  iade-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/iade-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-iade
+
+  tedarik-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/tedarik-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-tedarik
+
+  raporlama-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/raporlama-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-raporlama
+
+  cms-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/cms-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-cms
+
+  destek-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/destek-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-destek
+
+  otomasyon-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/otomasyon-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-otomasyon
+
+  kupon-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/kupon-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-kupon
+
+  medya-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/medya-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-medya
+
+  ai-asistan-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/ai-asistan-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-ai-asistan
+
+  bildirim-servisi:
+    <<: *php-base
+    build:
+      context: ./servisler/bildirim-servisi
+      dockerfile: Dockerfile
+    container_name: fulcrumos-bildirim
