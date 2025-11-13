@@ -2,13 +2,13 @@
 // Auth-Servisi - public/index.php
 
 // Gerekli dosyaları ve yapılandırmayı yükle
-require_once __DIR__ . '/../../../ProSiparis_API/vendor/autoload.php';
-require_once __DIR__ . '/../../../ProSiparis_API/config/ayarlar.php';
-require_once __DIR__ . '/../../../ProSiparis_API/config/veritabani_baglantisi.php';
+require_once __DIR__ . '/../../../FulcrumOS_API/vendor/autoload.php';
+require_once __DIR__ . '/../../../FulcrumOS_API/config/ayarlar.php';
+require_once __DIR__ . '/../../../FulcrumOS_API/config/veritabani_baglantisi.php';
 
-use ProSiparis\Core\Request;
-use ProSiparis\Core\Router;
-use ProSiparis\Controllers\KullaniciController;
+use FulcrumOS\Core\Request;
+use FulcrumOS\Core\Router;
+use FulcrumOS\Controllers\KullaniciController;
 
 $request = new Request();
 $router = new Router($request);

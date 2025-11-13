@@ -1,8 +1,8 @@
 <?php
-namespace ProSiparis\Controllers; // Varsayılan namespace
+namespace FulcrumOS\Controllers; // Varsayılan namespace
 
-use ProSiparis\Service\UrunService;
-use ProSiparis\Core\Request;
+use FulcrumOS\Service\UrunService;
+use FulcrumOS\Core\Request;
 
 class UrunController
 {

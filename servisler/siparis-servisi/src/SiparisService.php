@@ -1,5 +1,5 @@
 <?php
-namespace ProSiparis\Service;
+namespace FulcrumOS\Service;
 
 use PDO;
 use Exception;
@@ -19,7 +19,7 @@ class SiparisService
         $this->pdo->beginTransaction();
         try {
             // Dahili API çağrısı ile kullanıcı e-postasını al
-            $kullaniciApiUrl = "http://localhost/ProSiparis_API/servisler/auth-servisi/public/internal/kullanici/" . $kullaniciId;
+            $kullaniciApiUrl = "http://localhost/FulcrumOS_API/servisler/auth-servisi/public/internal/kullanici/" . $kullaniciId;
             $kullaniciVerisi = $this->internalApiCall($kullaniciApiUrl);
             $kullaniciEposta = $kullaniciVerisi['veri']['eposta'];
 

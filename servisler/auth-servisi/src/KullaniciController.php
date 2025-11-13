@@ -1,12 +1,12 @@
 <?php
-namespace ProSiparis\Controllers;
+namespace FulcrumOS\Controllers;
 
-use ProSiparis\Service\AuthService;
-use ProSiparis\Service\KullaniciService;
-use ProSiparis\Service\RecommendationService;
-use ProSiparis\Service\IadeService;
-use ProSiparis\Core\Request;
-use ProSiparis\Core\Auth;
+use FulcrumOS\Service\AuthService;
+use FulcrumOS\Service\KullaniciService;
+use FulcrumOS\Service\RecommendationService;
+use FulcrumOS\Service\IadeService;
+use FulcrumOS\Core\Request;
+use FulcrumOS\Core\Auth;
 use PDO;
 
 class KullaniciController

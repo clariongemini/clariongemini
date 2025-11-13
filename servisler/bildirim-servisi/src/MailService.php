@@ -1,5 +1,5 @@
 <?php
-namespace ProSiparis\Service;
+namespace FulcrumOS\Service;
 
 use Symfony\Component\Mailer\Mailer;
 use Symfony\Component\Mailer\Transport;
@@ -32,7 +32,7 @@ class MailService
         $htmlContent = "<h1>Siparişiniz Alındı!</h1><p>Sipariş Numaranız: {$siparisDetaylari['id']}</p>";
         $this->sendEmail(
             $kullaniciEposta,
-            'ProSiparis - Siparişiniz Başarıyla Alındı',
+            'FulcrumOS - Siparişiniz Başarıyla Alındı',
             $htmlContent
         );
     }
@@ -48,7 +48,7 @@ class MailService
                         <p>Takip Kodu: {$siparisDetaylari['kargo_takip_kodu']}</p>";
         $this->sendEmail(
             $kullaniciEposta,
-            'ProSiparis - Siparişiniz Kargoya Verildi',
+            'FulcrumOS - Siparişiniz Kargoya Verildi',
             $htmlContent
         );
     }

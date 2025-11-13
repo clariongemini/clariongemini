@@ -4,12 +4,12 @@
 // Gerekli dosyaları ve yapılandırmayı yükle
 // ...
 
-use ProSiparis\Core\Request;
-use ProSiparis\Core\Router;
-use ProSiparis\Controllers\PaymentController;
-use ProSiparis\Controllers\AdresController;
-use ProSiparis\Controllers\DepoController;
-use ProSiparis\Controllers\SiparisController;
+use FulcrumOS\Core\Request;
+use FulcrumOS\Core\Router;
+use FulcrumOS\Controllers\PaymentController;
+use FulcrumOS\Controllers\AdresController;
+use FulcrumOS\Controllers\DepoController;
+use FulcrumOS\Controllers\SiparisController;
 // ... (ve diğerleri)
 
 $request = new Request();

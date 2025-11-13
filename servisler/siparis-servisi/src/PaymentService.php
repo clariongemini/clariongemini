@@ -1,5 +1,5 @@
 <?php
-namespace ProSiparis\Service;
+namespace FulcrumOS\Service;
 
 use PDO;
 use Exception;
@@ -15,7 +15,7 @@ class PaymentService
         try {
             // 1. Fiyatları Katalog-Servisi'nden doğrula
             $varyantIds = array_column($veri['sepet'], 'varyant_id');
-            $katalogApiUrl = "http://localhost/ProSiparis_API/servisler/katalog-servisi/public/internal/katalog/varyantlar?ids=" . implode(',', $varyantIds) . "&fiyatListesiId=" . $fiyatListesiId;
+            $katalogApiUrl = "http://localhost/FulcrumOS_API/servisler/katalog-servisi/public/internal/katalog/varyantlar?ids=" . implode(',', $varyantIds) . "&fiyatListesiId=" . $fiyatListesiId;
             $fiyatlarVerisi = $this->internalApiCall($katalogApiUrl);
             $dogrulanmisFiyatlar = $fiyatlarVerisi['veri'];
 
@@ -29,7 +29,7 @@ class PaymentService
             // 2. Kuponu Ana Monolith'ten doğrula
             $indirimTutari = 0;
             if (!empty($veri['kupon_kodu'])) {
-                $kuponApiUrl = "http://localhost/ProSiparis_API/public/index.legacy.php/internal/legacy/kupon-dogrula";
+                $kuponApiUrl = "http://localhost/FulcrumOS_API/public/index.legacy.php/internal/legacy/kupon-dogrula";
                 $kuponSonuc = $this->internalApiCall($kuponApiUrl, 'POST', [
                     'kupon_kodu' => $veri['kupon_kodu'],
                     'sepet_tutari' => $sepetTutari

@@ -1,0 +1,6 @@
+{
+    "name": "fulcrumos/auth-servisi",
+    "autoload": { "psr-4": { "FulcrumOS\\Auth\\": "src/" } },
+    "autoload-dev": { "psr-4": { "FulcrumOS\\Auth\\Tests\\": "tests/" } },
+    "require-dev": { "phpunit/phpunit": "^9.5" }
+}

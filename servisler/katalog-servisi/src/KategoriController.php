@@ -1,8 +1,8 @@
 <?php
-namespace ProSiparis\Controller;
+namespace FulcrumOS\Controller;
 
-use ProSiparis\Service\KategoriService;
-use ProSiparis\Core\Request;
+use FulcrumOS\Service\KategoriService;
+use FulcrumOS\Core\Request;
 
 class KategoriController
 {

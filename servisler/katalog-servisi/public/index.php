@@ -3,10 +3,10 @@
 
 // ... (gerekli dosyalar)
 
-use ProSiparis\Core\Request;
-use ProSiparis\Core\Router;
-use ProSiparis\Controllers\UrunController;
-use ProSiparis\Controllers\KategoriController;
+use FulcrumOS\Core\Request;
+use FulcrumOS\Core\Router;
+use FulcrumOS\Controllers\UrunController;
+use FulcrumOS\Controllers\KategoriController;
 
 $request = new Request();
 $router = new Router($request);
