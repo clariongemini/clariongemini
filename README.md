@@ -1,24 +1,37 @@
-# FulcrumOS API v9.0 - Proje Yeniden Markalama
+# FulcrumOS API v9.1 - Paketleme (Faz 1: Demo Veri Seti)
 
-Bu sürüm, platformun "ProSiparis" olan eski kimliğinden "FulcrumOS" olarak bilinen yeni marka kimliğine geçişini tamamlayan, teknik ve yapısal olarak kritik bir kilometre taşıdır. Bu değişiklik, projenin vizyonunu ve gelecekteki yönünü daha iyi yansıtmak için yapılmıştır.
+Bu sürüm, FulcrumOS platformunun "Paketleme & Dağıtım" fazının ilk ve en kritik adımını tamamlamaktadır. v9.1 ile, platformun "boş" bir iskelet olmaktan çıkarılıp, potansiyel müşterilere demo yapılabilecek veya geliştiriciler tarafından anında test edilebilecek "canlı bir ekosistem" haline gelmesi sağlanmıştır.
 
-## v9.0 Değişiklikleri: Kökten Uca Yeniden Markalama
+## v9.1 Yenilikleri: Merkezi Demo Veri Seti
 
--   **Ana Dizin Adı Güncellendi:** Projenin kök dizini `ProSiparis_API/`'den `FulcrumOS_API/` olarak yeniden adlandırılmıştır.
--   **PHP Namespace'leri Değiştirildi:** Tüm `ProSiparis\\` önekli PHP namespace'leri, `FulcrumOS\\` olarak güncellenmiştir. Bu, tüm mikroservislerdeki sınıf ve arayüzleri kapsamaktadır.
--   **Composer Paket Adı Değiştirildi:** `composer.json` dosyalarındaki paket adları (`prosiparis/core`, `prosiparis/auth-servisi` vb.) `fulcrumos/` önekini kullanacak şekilde değiştirilmiştir.
--   **Yapılandırma ve Metin Değişiklikleri:** Kod tabanındaki "ProSiparis" geçen tüm metinler, log mesajları ve yapılandırma dosyaları "FulcrumOS" olarak güncellenmiştir.
-
-Bu kapsamlı refactoring işlemi, projenin teknik temelini yeni marka kimliğiyle tamamen uyumlu hale getirmiştir.
+-   **`demo.sql` Betiği Oluşturuldu:** Projenin kök dizinine eklenen `demo.sql` adındaki merkezi SQL betiği, tek bir komutla platformun 10+ mikroservisinin tamamını dolduracak zengin ve anlamlı veriler içerir. Bu, platformun "iş değerini" anında gösterebilmesini sağlar.
 
 ---
 
-## Mimari Bütünlük
+## Mimari Konseptler (v9.1 Güncellemeleri)
 
-Yeniden markalama işlemi, v8.1'de oluşturulan ve backend (`PHPUnit`) ile frontend (`Vitest`) testlerini kapsayan **kapsamlı test altyapısı** sayesinde güvenli bir şekilde gerçekleştirilmiştir. Tüm testler, bu büyük refactoring sonrasında başarıyla çalıştırılarak platformun işlevsel bütünlüğünün korunduğu doğrulanmıştır.
+### 1. İlişkisel Bütünlüğün Korunması (Referential Integrity)
+`demo.sql` betiği, mikroservis mimarisinin dağıtık yapısına rağmen, veriler arasında tam bir ilişkisel bütünlük kurar. Örneğin:
+-   `Siparis-Servisi`'ne eklenen bir `siparis`, `Auth-Servisi`'nde oluşturulan sahte bir `kullanici`'ya aittir.
+-   Bu siparişin içindeki `siparis_urunleri`, `Katalog-Servisi`'nde tanımlanan `urun_varyantlari`'na referans verir.
+-   `Iade-Servisi`'ndeki bir `iade_talebi`, `Siparis-Servisi`'nde "teslim edildi" olarak işaretlenmiş bir `siparis`'e aittir.
+
+Bu yaklaşım, platformun sadece rastgele verilerle değil, gerçek bir e-ticaret operasyonunu simüle eden, birbiriyle tutarlı bir veri setiyle "canlı" hale gelmesini sağlar.
 
 ---
 
-## API Endpoint'leri (v9.0)
+## Kullanım Talimatı
 
-Bu sürümde API endpoint'lerinde herhangi bir değişiklik yapılmamıştır. Değişiklikler tamamen yapısal ve isimlendirme odaklıdır.
+Bu demo veri setini kullanarak FulcrumOS platformunu "canlı" bir demo ortamına dönüştürmek için aşağıdaki adımları izleyin:
+
+1.  **Veritabanlarını Oluşturun:** Her bir mikroservis için (`fulcrumos_auth`, `fulcrumos_katalog`, `fulcrumos_siparis` vb.) boş MySQL veritabanları oluşturun.
+2.  **Şemaları Yükleyin:** Her bir veritabanına, ilgili servisin `servisler/{servis-adi}/schema_*.sql` dosyasını yükleyerek (import ederek) tabloları oluşturun.
+3.  **Demo Verilerini Yükleyin:** Bu projenin kök dizininde bulunan `demo.sql` betiğini, **oluşturduğunuz her bir veritabanına karşı ayrı ayrı** çalıştırın. Betik, her veritabanında sadece kendi tabloları mevcutsa ilgili verileri ekleyecektir.
+
+Bu işlemler tamamlandığında, `admin@fulcrumos.com` (şifre: `admin123`) kullanıcısıyla `admin-ui`'ye giriş yaparak platformun tüm modüllerini "canlı" verilerle inceleyebilirsiniz.
+
+---
+
+## API Endpoint'leri (v9.1)
+
+Bu sürümde yeni bir API endpoint'i eklenmemiştir. Bu sürümün odak noktası, platformu test ve demo için hazır hale getirecek zengin bir veri seti oluşturmaktır.
