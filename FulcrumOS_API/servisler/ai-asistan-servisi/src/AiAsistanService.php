@@ -151,4 +151,63 @@ class AiAsistanService
         }
         return $dotProduct / ($normA * $normB);
     }
+
+    /**
+     * Admin AI Co-Pilot için proaktif öneriler üretir.
+     */
+    public function getCoPilotOnerileri()
+    {
+        try {
+            // 1. Veri Toplama
+            $satisVerisi = $this->getSatisVerisi();
+            $stokVerisi = $this->getStokVerisi();
+
+            if ($satisVerisi === null || $stokVerisi === null) {
+                throw new \Exception("Veri toplama servislerinden biri yanıt vermedi.");
+            }
+
+            // 2. Veri Yorumlama ve Prompt Oluşturma
+            $analizOzeti = "SATIS_VERISI: " . json_encode($satisVerisi) . " STOK_VERISI: " . json_encode($stokVerisi);
+
+            // 3. Aksiyon Önerme (LLM Çağrısı)
+            $oneri = $this->callGeminiForOneri($analizOzeti);
+
+            return ['basarili' => true, 'kod' => 200, 'oneri' => $oneri];
+
+        } catch (\Exception $e) {
+            error_log("Co-Pilot önerisi oluşturulurken hata: " . $e->getMessage());
+            return ['basarili' => false, 'kod' => 500, 'mesaj' => 'Öneri oluşturulurken bir sunucu hatası oluştu.'];
+        }
+    }
+
+    /**
+     * Simülasyon: Raporlama servisine internal API çağrısı yapar.
+     */
+    private function getSatisVerisi()
+    {
+        return $this->internalApiCall('http://raporlama-servisi/internal/raporlama/ai-satis-verisi');
+    }
+
+    /**
+     * Simülasyon: Envanter servisine internal API çağrısı yapar.
+     */
+    private function getStokVerisi()
+    {
+        return $this->internalApiCall('http://envanter-servisi/internal/envanter/ai-stok-durumu');
+    }
+
+    /**
+     * Simülasyon: Gemini Chat API'sine prompt gönderir.
+     */
+    private function callGeminiForOneri($veriOzeti)
+    {
+        $systemPrompt = "Sen, FulcrumOS platformu için proaktif bir WMS (Depo Yönetim Sistemi) ve Satış Analistisin. Görevin, sana 'SATIS_VERISI' ve 'STOK_VERISI' olarak sunulan JSON verilerini analiz etmektir. Eğer bir operasyonel verimsizlik (örn: bir depoda stok tükenme riski varken, başka bir depoda aynı ürünün atıl durması) tespit edersen, bu sorunu çözecek tek cümlelik, net bir aksiyon önerisi sunmalısın. Eğer önemli bir anomali yoksa, 'Operasyonel olarak her şey yolunda görünüyor.' şeklinde olumlu bir mesaj ver.";
+        $userPrompt = "Lütfen analiz et. " . $veriOzeti;
+
+        // Gerçek API çağrısı burada yapılır.
+        // $geminiClient->chat($systemPrompt, $userPrompt);
+
+        // Simülasyon yanıtı
+        return "Ankara Deposu'ndaki TSHIRT-KRM-L stokları kritik seviyede. İstanbul Deposu'ndan 50 adet transfer etmeyi düşünün.";
+    }
 }

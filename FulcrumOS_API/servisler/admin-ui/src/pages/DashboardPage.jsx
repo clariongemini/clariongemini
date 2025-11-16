@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Grid, Card, CardContent, Typography } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import apiClient from '../api/apiClient';
+import { useAuth } from '../contexts/AuthContext'; // Yetki kontrolü için
+import AiCopilotWidget from '../components/AiCopilotWidget'; // Yeni AI Widget'ı
 
 const DashboardPage = () => {
+  const { user } = useAuth();
   const [kpiData, setKpiData] = useState(null);
   const [chartData, setChartData] = useState([]);
 
@@ -25,6 +28,9 @@ const DashboardPage = () => {
 
   return (
     <div>
+      {/* v10.4: AI Co-Pilot Widget */}
+      {user && user.permissions && user.permissions.includes('ai_copilot_goruntule') && <AiCopilotWidget />}
+
       <Typography variant="h4" gutterBottom>
         Dashboard
       </Typography>

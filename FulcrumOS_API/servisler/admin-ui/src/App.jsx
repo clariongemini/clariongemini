@@ -21,6 +21,7 @@ import OrderListPage from './pages/OrderListPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import ReturnListPage from './pages/ReturnListPage';
 import ReturnDetailPage from './pages/ReturnDetailPage'; // Yeni eklendi
+import MuhasebeLoglari from './pages/MuhasebeLoglari'; // v10.3
 
 // AppContent, tema context'ine erişebilmek için ayrı bir bileşen olmalı
 const AppContent = () => {
@@ -64,6 +65,9 @@ const AppContent = () => {
               {/* İade Yönetimi Rotaları */}
               <Route path="/admin/iadeler" element={<ReturnListPage />} />
               <Route path="/admin/iadeler/:iadeId" element={<ReturnDetailPage />} />
+
+              {/* Entegrasyon Rotaları (v10.3) */}
+              <Route path="/admin/entegrasyonlar/muhasebe" element={<MuhasebeLoglari />} />
             </Route>
         </Route>
       </Routes>
