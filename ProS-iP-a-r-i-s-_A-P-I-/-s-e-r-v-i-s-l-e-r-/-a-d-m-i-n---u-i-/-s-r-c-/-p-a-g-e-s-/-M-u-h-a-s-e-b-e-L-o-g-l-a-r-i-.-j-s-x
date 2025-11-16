@@ -1,0 +1,111 @@
+// FulcrumOS v10.3: Muhasebe Entegrasyon Logları Sayfası
+import React, { useState, useEffect } from 'react';
+import { DataGrid } from '@mui/x-data-grid';
+import { Chip, Button, Snackbar, Alert, Typography, Box } from '@mui/material';
+import axios from 'axios'; // Varsayım: Projede axios kurulu ve api/apiClient.js içinde yapılandırılmış.
+
+// Durum çipleri için renk eşleştirmesi
+const statusColors = {
+  basarili: 'success',
+  hata: 'error',
+  beklemede: 'warning',
+};
+
+const MuhasebeLoglari = () => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    // API'den logları çek
+    axios.get('/api/admin/entegrasyonlar/muhasebe-loglari')
+      .then(response => {
+        setLogs(response.data.data);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Muhasebe logları çekilirken hata oluştu:", error);
+        setSnackbar({ open: true, message: 'Loglar yüklenemedi!', severity: 'error' });
+        setLoading(false);
+      });
+  }, []);
+
+  const handleRetry = (logId) => {
+    axios.post(`/api/admin/entegrasyonlar/muhasebe-loglari/${logId}/tekrar-dene`)
+      .then(response => {
+        setSnackbar({ open: true, message: response.data.message, severity: 'success' });
+        // Tabloyu yeniden yükle veya durumu manuel güncelle
+        const updatedLogs = logs.map(log =>
+          log.log_id === logId ? { ...log, durum: 'beklemede' } : log
+        );
+        setLogs(updatedLogs);
+      })
+      .catch(error => {
+        console.error(`Log #${logId} yeniden denenirken hata:`, error);
+        setSnackbar({ open: true, message: 'İşlem başarısız oldu!', severity: 'error' });
+      });
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const columns = [
+    { field: 'olusturma_tarihi', headerName: 'Tarih', width: 180,
+      renderCell: (params) => new Date(params.value).toLocaleString() },
+    { field: 'olay_tipi', headerName: 'Olay Tipi', width: 120,
+      renderCell: (params) => params.value.toUpperCase() },
+    { field: 'referans_id', headerName: 'Referans ID', width: 120 },
+    {
+      field: 'durum',
+      headerName: 'Durum',
+      width: 120,
+      renderCell: (params) => (
+        <Chip label={params.value} color={statusColors[params.value] || 'default'} />
+      ),
+    },
+    { field: 'hata_mesaji', headerName: 'Hata Mesajı', flex: 1 },
+    {
+      field: 'eylemler',
+      headerName: 'Eylemler',
+      width: 150,
+      renderCell: (params) => (
+        params.row.durum === 'hata' && (
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => handleRetry(params.row.log_id)}
+          >
+            Tekrar Dene
+          </Button>
+        )
+      ),
+    },
+  ];
+
+  return (
+    <Box sx={{ height: '80vh', width: '100%' }}>
+        <Typography variant="h4" gutterBottom>
+            Muhasebe Entegrasyon Logları
+        </Typography>
+        <DataGrid
+            rows={logs}
+            columns={columns}
+            getRowId={(row) => row.log_id}
+            loading={loading}
+            initialState={{
+              sorting: {
+                sortModel: [{ field: 'olusturma_tarihi', sort: 'desc' }],
+              },
+            }}
+        />
+        <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleSnackbarClose}>
+            <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+                {snackbar.message}
+            </Alert>
+        </Snackbar>
+    </Box>
+  );
+};
+
+export default MuhasebeLoglari;
